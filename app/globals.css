@@ -1661,3 +1661,74 @@ html {
 .quick-game {
   padding-top: clamp(12px, 2vw, 26px);
 }
+.china img.beside-boat[src] {
+  display: block;
+  width: 38%;
+  left: 100%;
+  top: 22%;
+  z-index: 4;
+}
+.side-gravy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  margin-top: 9px;
+  background: #f9ecd3;
+  border: 1px solid #b99476;
+  border-radius: 7px;
+  font-weight: 700;
+}
+.side-gravy img {
+  width: 37px;
+  height: 28px;
+  object-fit: contain;
+}
+.food-pick small {
+  font-size: 0.69rem;
+  color: #714d45;
+}
+.food-pick:has(small) {
+  position: relative;
+}
+.food-pick small {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  background: #fff7e8de;
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+.move-tip {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 80%;
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #4b263b;
+  color: #fff4da;
+  pointer-events: none;
+  font-size: 0.83rem;
+  text-align: center;
+}
+.portion-edit .fixed-label {
+  margin-right: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.side-gravy + small {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.beside-drink {
+  position: absolute;
+  left: -21%;
+  top: -14%;
+  font-size: clamp(17px, 2vw, 26px);
+  line-height: 1;
+  transform: rotate(-7deg);
+}

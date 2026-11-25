@@ -26,13 +26,37 @@ export const plateSchema = z
         kind: z.enum(kinds),
         x: z.number().finite(),
         z: z.number().finite(),
+        inBoat: z.literal(true).optional(),
         size: z.number().min(0.4).max(1.4),
       })
-      .refine((p) => Math.hypot(p.x, p.z) <= 2.3),
+      .refine(
+        (p) => Math.hypot(p.x, p.z) <= 2.3 && (!p.inBoat || p.kind === "gravy"),
+      ),
   )
   .max(20);
 export type Plate = z.infer<typeof plateSchema>;
 export type Food = Plate[number];
+export const staysPut = (kind: Kind) =>
+  kind === "gravy" || kind === "cranberry";
+export const placementRule = "Gravy and cranberries stay where you place them.";
+export function keepsCommittedPortions(before: Plate, after: Plate) {
+  const remaining = after.filter((f) => staysPut(f.kind));
+  return before
+    .filter((f) => staysPut(f.kind))
+    .every((f) => {
+      const index = remaining.findIndex(
+        (n) =>
+          n.kind === f.kind &&
+          n.x === f.x &&
+          n.z === f.z &&
+          n.size === f.size &&
+          n.inBoat === f.inBoat,
+      );
+      if (index < 0) return false;
+      remaining.splice(index, 1);
+      return true;
+    });
+}
 export const side = (k: Kind) =>
   k === "mash" || k === "beans" || k === "cranberry";
 export const meat = (k: Kind) =>
@@ -59,16 +83,23 @@ export const drinkNames: Record<Drink, string> = {
   spritz: "Cranberry spritz (zero proof)",
 };
 export function portionList(p: Plate) {
-  const counts = new Map<Kind, number>();
-  for (const f of p) counts.set(f.kind, (counts.get(f.kind) ?? 0) + 1);
-  return [...counts].map(([k, n]) => n + " × " + names[k]).join(" · ");
+  const counts = new Map<string, number>();
+  for (const f of p) {
+    const label = f.inBoat ? "Gravy on the side" : names[f.kind];
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts].map(([label, n]) => n + " × " + label).join(" · ");
 }
 export function assess(p: Plate) {
   const turkey = p.filter((f) => meat(f.kind)),
     sides = p.filter((f) => side(f.kind)),
     sauce = p.filter((f) => f.kind === "gravy");
-  const wet = sauce.find((g) =>
-    turkey.some((t) => Math.hypot(t.x - g.x, t.z - g.z) < 0.48 + 0.43 * g.size),
+  const wet = sauce.find(
+    (g) =>
+      !g.inBoat &&
+      turkey.some(
+        (t) => Math.hypot(t.x - g.x, t.z - g.z) < 0.48 + 0.43 * g.size,
+      ),
   );
   const checks = [
     turkey.length === 2 && turkey.every((f) => f.kind === "thin"),
@@ -103,7 +134,11 @@ export function assess(p: Plate) {
               : "doubleBerries";
   } else if (!checks[2]) {
     target = wet;
-    pool = !wet ? "noGravy" : sauce.length > 1 ? "flood" : "wet";
+    pool = !wet
+      ? "noGravy"
+      : sauce.filter((f) => !f.inBoat).length > 1
+        ? "flood"
+        : "wet";
   } else if (sauce.length > 1) pool = "ampleSauce";
   return { checks, pool, pin: target ? { x: target.x, z: target.z } : null };
 }

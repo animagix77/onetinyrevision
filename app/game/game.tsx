@@ -21,6 +21,8 @@ import {
   type Drink,
   review,
   plateSchema,
+  keepsCommittedPortions,
+  placementRule,
   type Entry,
   type Plate,
   type Note,
@@ -239,6 +241,10 @@ export default function Game({ user }: { user: string | null }) {
     drink: Drink | null = draft.drink ?? null,
   ) {
     if (lock.current || !ready || !chefName || locked) return false;
+    if (!keepsCommittedPortions(plate, next)) {
+      setError(placementRule);
+      return false;
+    }
     lock.current = true;
     setWorking(true);
     setError("");
@@ -501,6 +507,7 @@ export default function Game({ user }: { user: string | null }) {
               )}
               <Scene
                 roast={false}
+                drink={snapshot ? snapshot.drink : inspect.drink}
                 label={snapshot ? "SERVED PLATE" : "CURRENT PLATE"}
                 plate={snapshot?.plate || inspect.draft}
                 pin={(snapshot || inspect.servings.at(-1))?.verdict.pin}

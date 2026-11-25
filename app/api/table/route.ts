@@ -3,6 +3,8 @@ import { getDb } from "../../../db";
 import { plates, notes, chefs } from "../../../db/schema";
 import {
   plateSchema,
+  keepsCommittedPortions,
+  placementRule,
   drinkSchema,
   review,
   type Serving,
@@ -118,6 +120,8 @@ export async function POST(req: Request) {
   const servings: Serving[] = row ? JSON.parse(row.servings) : [];
   if (servings.length >= 2)
     return json({ error: "This plate has its final verdict." }, 409);
+  if (row && !keepsCommittedPortions(JSON.parse(row.draft), b.plate))
+    return json({ error: placementRule }, 422);
   const drink =
     b.drink === undefined
       ? (drinkSchema.safeParse(row?.drink).data ?? null)

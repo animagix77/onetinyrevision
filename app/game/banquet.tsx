@@ -66,32 +66,58 @@ export default function Banquet({
               }
             >
               <div className="china">
-                {p.map((f, j) =>
-                  f.kind === "gravy" ? (
-                    <i
-                      key={j}
-                      className="puddle"
-                      style={{
-                        left: 50 + f.x * 18 + "%",
-                        top: 50 + f.z * 17 + "%",
-                        width: "17%",
-                        zIndex: 3,
-                      }}
-                    />
-                  ) : (
-                    <img
-                      key={j}
-                      alt=""
-                      src={"/food/" + f.kind + ".png"}
-                      style={{
-                        left: 50 + f.x * 18 + "%",
-                        top: 50 + f.z * 17 + "%",
-                        width: "28%",
-                        zIndex: 1,
-                      }}
-                    />
-                  ),
+                {drink && (
+                  <span
+                    className="beside-drink"
+                    title={drinkNames[drink]}
+                    aria-label={drinkNames[drink]}
+                  >
+                    {
+                      {
+                        pinot: "🍷",
+                        ale: "🍺",
+                        bourbon: "🥃",
+                        cider: "☕",
+                        spritz: "🍹",
+                      }[drink]
+                    }
+                  </span>
                 )}
+                {p.some((f) => f.inBoat) && (
+                  <img
+                    className="beside-boat"
+                    alt="Gravy on the side"
+                    src="/food/gravy.png"
+                  />
+                )}
+                {p
+                  .filter((f) => !f.inBoat)
+                  .map((f, j) =>
+                    f.kind === "gravy" ? (
+                      <i
+                        key={j}
+                        className="puddle"
+                        style={{
+                          left: 50 + f.x * 18 + "%",
+                          top: 50 + f.z * 17 + "%",
+                          width: "17%",
+                          zIndex: 3,
+                        }}
+                      />
+                    ) : (
+                      <img
+                        key={j}
+                        alt=""
+                        src={"/food/" + f.kind + ".png"}
+                        style={{
+                          left: 50 + f.x * 18 + "%",
+                          top: 50 + f.z * 17 + "%",
+                          width: "28%",
+                          zIndex: 1,
+                        }}
+                      />
+                    ),
+                  )}
               </div>
               <span className="place-card">
                 <strong>

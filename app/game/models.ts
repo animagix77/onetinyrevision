@@ -1,6 +1,6 @@
 import * as T from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import type { Food, Plate } from "./rules";
+import type { Food, Plate, Drink } from "./rules";
 type Group = T.Object3D;
 const materials = new Map<string, T.MeshStandardMaterial>();
 function mat(c: string) {
@@ -415,7 +415,97 @@ export function food(g: Group, f: Food) {
   }
   return p;
 }
-export function dish(p: Plate) {
+function glassware(g: Group, drink: Drink) {
+  const glass = new T.Group();
+  g.add(glass);
+  glass.position.set(-2.65, 0.14, -0.26);
+  const wine = drink === "pinot",
+    mug = drink === "cider" || drink === "ale",
+    height = wine ? 0.98 : drink === "bourbon" ? 0.52 : 0.78;
+  const base = wine ? 0.41 : 0.04,
+    radius = wine ? 0.31 : 0.27;
+  if (wine) {
+    mesh(
+      glass,
+      new T.CylinderGeometry(0.23, 0.255, 0.045, 28),
+      "#d6cec3",
+      0,
+      0.024,
+      0,
+    );
+    mesh(
+      glass,
+      new T.CylinderGeometry(0.04, 0.034, 0.37, 16),
+      "#e5ddd1",
+      0,
+      0.22,
+      0,
+    );
+  }
+  const shell = (profile: number[][], color: string) =>
+    mesh(
+      glass,
+      new T.LatheGeometry(
+        profile.map(([r, h]) => new T.Vector2(r, h)),
+        32,
+      ),
+      color,
+      0,
+      0,
+      0,
+    );
+  const color = {
+    pinot: "#782a45",
+    ale: "#b86a1c",
+    bourbon: "#ae5627",
+    cider: "#c78435",
+    spritz: "#d05066",
+  }[drink];
+  shell(
+    [
+      [0, base],
+      [radius * 0.7, base],
+      [radius, base + 0.12],
+      [radius * 0.96, height - 0.12],
+    ],
+    mug && drink === "cider" ? "#9f5750" : color,
+  );
+  shell(
+    [
+      [radius * 0.96, height - 0.12],
+      [radius * 0.94, height],
+      [radius * 0.86, height],
+      [radius * 0.86, height - 0.12],
+    ],
+    drink === "cider" ? "#e1ae8b" : "#dbd8c8",
+  );
+  mesh(
+    glass,
+    new T.CylinderGeometry(radius * 0.9, radius * 0.9, 0.025, 32),
+    drink === "ale" ? "#f6e1a7" : color,
+    0,
+    height - 0.072,
+    0,
+  );
+  if (mug) {
+    const handle = mesh(
+      glass,
+      new T.TorusGeometry(0.15, 0.045, 7, 20),
+      drink === "cider" ? "#ac6459" : "#e1d3b1",
+      radius + 0.065,
+      height * 0.55,
+      0,
+    );
+    handle.scale.y = 1.28;
+  }
+  if (drink === "spritz") {
+    berry(glass, 0.12, height - 0.04, 0.05, 0.065);
+    berry(glass, 0.01, height - 0.045, 0.1, 0.052);
+  }
+  if (drink === "bourbon")
+    box(glass, "#ded1ab", 0.06, height - 0.055, 0.03, 0.14, 0.1, 0.14, 0.025);
+}
+export function dish(p: Plate, drink?: Drink | null) {
   const g = new T.Group();
   cloth(g);
   const points = [
@@ -441,13 +531,54 @@ export function dish(p: Plate) {
     0,
   );
   rim.rotation.x = Math.PI / 2;
-  const solids = p.filter((f) => f.kind !== "gravy").map((f) => food(g, f));
+  const solids: T.Object3D[] = [];
+  for (const [index, item] of p.entries()) {
+    if (item.kind === "gravy") continue;
+    const model = food(g, item);
+    model.userData.portionIndex = index;
+    solids.push(model);
+  }
+  if (drink) glassware(g, drink);
+  const boatIndex = p.findIndex((f) => f.inBoat);
+  if (boatIndex >= 0) {
+    const boat = new T.Group();
+    g.add(boat);
+    boat.position.set(2.48, 0.14, -1.58);
+    boat.userData.portionIndex = boatIndex;
+    const wall = [
+      [0, 0],
+      [0.22, 0],
+      [0.37, 0.14],
+      [0.45, 0.37],
+      [0.44, 0.44],
+      [0.4, 0.45],
+      [0.39, 0.38],
+      [0.33, 0.18],
+      [0, 0.12],
+    ].map(([r, y]) => new T.Vector2(r, y));
+    const hull = mesh(boat, new T.LatheGeometry(wall, 36), "#fff3d5", 0, 0, 0);
+    hull.scale.x = 1.42;
+    const handle = mesh(
+      boat,
+      new T.TorusGeometry(0.15, 0.045, 8, 20),
+      "#ffe8bd",
+      0.61,
+      0.27,
+      0,
+    );
+    handle.scale.x = 1.1;
+    const level =
+      0.27 + Math.min(0.11, p.filter((f) => f.inBoat).length * 0.025);
+    oval(boat, "#925132", 0, level, 0, 0.54, 0.021, 0.35, 2);
+  }
   g.updateMatrixWorld(true);
   const ray = new T.Raycaster();
-  for (const pour of p.filter((f) => f.kind === "gravy")) {
+  for (const [index, pour] of p.entries()) {
+    if (pour.kind !== "gravy" || pour.inBoat) continue;
     ray.set(new T.Vector3(pour.x, 4, pour.z), new T.Vector3(0, -1, 0));
     const hit = ray.intersectObjects(solids, true)[0];
     const pool = food(g, pour);
+    pool.userData.portionIndex = index;
     if (hit) pool.position.y = hit.point.y + 0.012;
   }
   return g;

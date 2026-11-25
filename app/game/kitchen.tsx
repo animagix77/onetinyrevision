@@ -10,6 +10,9 @@ import {
 import Scene from "./scene";
 import {
   kinds,
+  staysPut,
+  keepsCommittedPortions,
+  placementRule,
   names,
   meat,
   side,
@@ -73,8 +76,7 @@ export default function Kitchen({
 }: Props) {
   const [qty, setQty] = useState(defaultQty),
     [selected, setSelected] = useState<Kind>("thin"),
-    [message, setMessage] = useState(""),
-    [move, setMove] = useState<number | null>(null);
+    [message, setMessage] = useState("");
   const [ghost, setGhost] = useState<{
       kind: Kind;
       x: number;
@@ -96,9 +98,12 @@ export default function Kitchen({
     disabled = busy || !ready || closed;
   async function save(next: Plate, notice: string) {
     if (await change(next)) {
-      setUndo({ before: plate, after: next });
+      setUndo(
+        keepsCommittedPortions(next, plate)
+          ? { before: plate, after: next }
+          : null,
+      );
       setMessage(notice);
-      setMove(null);
     }
   }
   function add(k: Kind, point?: Spot, n = qty[k]) {
@@ -115,14 +120,35 @@ export default function Kitchen({
       n + " × " + names[k] + " added.",
     );
   }
-  function pointAdd(x: number, z: number) {
-    if (move === null) {
-      add(selected, { x, z });
+  function movePortion(index: number, x: number, z: number) {
+    const item = plate[index];
+    if (disabled || !item || staysPut(item.kind)) return;
+    void save(
+      plate.map((f, i) => (i === index ? { ...f, x, z } : f)),
+      names[item.kind] + " moved.",
+    );
+  }
+  function addSideGravy() {
+    const n = qty.gravy;
+    if (disabled) return;
+    if (n + plate.length > 20) {
+      setMessage(
+        "The plate holds 20 portions. Lower the quantity or remove a movable food.",
+      );
       return;
     }
     void save(
-      plate.map((f, i) => (i === move ? { ...f, x, z } : f)),
-      "Item moved.",
+      [
+        ...plate,
+        ...Array.from({ length: n }, () => ({
+          kind: "gravy" as const,
+          x: 0,
+          z: 0,
+          size: 1,
+          inBoat: true as const,
+        })),
+      ],
+      "Gravy served in the boat beside the plate.",
     );
   }
   function count(k: Kind, delta: number) {
@@ -148,7 +174,9 @@ export default function Kitchen({
             plate={plate}
             roast={false}
             dropTarget={pickPoint}
-            onPlace={closed ? undefined : pointAdd}
+            drink={drink}
+            onMove={disabled ? undefined : movePortion}
+            onPlace={disabled ? undefined : (x, z) => add(selected, { x, z })}
             pin={closed ? verdict?.pin : null}
           />
         </div>
@@ -179,9 +207,22 @@ export default function Kitchen({
             <>
               {revising && <p className="revision-quote">“{verdict?.note}”</p>}
               <p className="kitchen-tip">
-                Drag food from the tray onto the plate. Tap a food for quick
-                placement.
+                Drag food onto the plate, then drag it to rearrange.{" "}
+                {placementRule}
               </p>
+              <button
+                className="side-gravy"
+                disabled={disabled || plate.length >= 20}
+                onClick={addSideGravy}
+              >
+                <img src="/food/gravy.png" alt="" />
+                Gravy on the side
+              </button>
+              <small>
+                {plate.some((f) => f.inBoat)
+                  ? plate.filter((f) => f.inBoat).length + " in the gravy boat"
+                  : "Served in a separate gravy boat."}
+              </small>
               <details className="edit-order" open={revising || undefined}>
                 <summary>
                   {plate.length
@@ -193,19 +234,23 @@ export default function Kitchen({
                   .map((k) => (
                     <div className="portion-edit" key={k}>
                       <span>{names[k]}</span>
-                      <button
-                        disabled={disabled}
-                        aria-label={"Remove one " + names[k]}
-                        onClick={() => {
-                          const i = plate.map((f) => f.kind).lastIndexOf(k);
-                          void save(
-                            plate.filter((_, j) => i !== j),
-                            "Portion removed.",
-                          );
-                        }}
-                      >
-                        −
-                      </button>
+                      {staysPut(k) ? (
+                        <small className="fixed-label">Stays put</small>
+                      ) : (
+                        <button
+                          disabled={disabled}
+                          aria-label={"Remove one " + names[k]}
+                          onClick={() => {
+                            const i = plate.map((f) => f.kind).lastIndexOf(k);
+                            void save(
+                              plate.filter((_, j) => i !== j),
+                              "Portion removed.",
+                            );
+                          }}
+                        >
+                          −
+                        </button>
+                      )}
                       <b>{plate.filter((f) => f.kind === k).length}</b>
                       <button
                         disabled={disabled || plate.length === 20}
@@ -216,28 +261,6 @@ export default function Kitchen({
                       </button>
                     </div>
                   ))}
-                {plate.length > 0 && (
-                  <>
-                    <label htmlFor="move-food">Move a portion</label>
-                    <select
-                      id="move-food"
-                      value={move ?? ""}
-                      onChange={(e) => {
-                        setMove(
-                          e.target.value === "" ? null : Number(e.target.value),
-                        );
-                        setMessage("Tap the plate to move that portion.");
-                      }}
-                    >
-                      <option value="">Choose a portion…</option>
-                      {plate.map((f, i) => (
-                        <option key={i} value={i}>
-                          {i + 1}. {names[f.kind]}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                )}
               </details>
               <label className="drink-label" htmlFor="pairing">
                 Drink pairing <small>optional</small>
@@ -326,6 +349,7 @@ export default function Kitchen({
                   >
                     <img src={"/food/" + k + ".png"} alt="" draggable={false} />
                     <strong>{names[k]}</strong>
+                    {staysPut(k) && <small>Stays put</small>}
                   </button>
                   <div className="stepper">
                     <button
@@ -354,7 +378,7 @@ export default function Kitchen({
                 {busy
                   ? "Saving…"
                   : message ||
-                    "Tap the plate to add more of your last food. Gravy can go anywhere."}
+                    "Drag a solid food to move it, or tap it and then tap its new spot."}
               </span>
               {undo?.after === plate && (
                 <button
@@ -363,7 +387,6 @@ export default function Kitchen({
                     if (await change(undo.before)) {
                       setUndo(null);
                       setMessage("Last edit undone.");
-                      setMove(null);
                     }
                   }}
                 >
