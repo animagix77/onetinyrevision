@@ -15,6 +15,13 @@
       "when": 1795627553080,
       "tag": "0001_red_marten_broadcloak",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795633845107,
+      "tag": "0002_game_round",
+      "breakpoints": true
     }
   ]
 }

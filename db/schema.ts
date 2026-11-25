@@ -23,3 +23,7 @@ export const chefs = sqliteTable("chef_profiles", {
   owner: text("owner").primaryKey(),
   name: text("name").notNull(),
 });
+
+export const gameRounds = sqliteTable("game_rounds", {
+  id: text("id").primaryKey(),
+});

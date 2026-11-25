@@ -29,7 +29,8 @@ import {
   type Note,
   type Serving,
 } from "./rules";
-const key = "judge-dean-one-tiny-revision-practice-v1";
+import { gameRound } from "./round";
+const key = "judge-dean-one-tiny-revision-practice-" + gameRound;
 const empty: Plate = [];
 type Draft = {
   drink?: Drink | null;
@@ -57,15 +58,21 @@ function loadPractice(): Draft {
   return fresh;
 }
 async function dataUrl<R = unknown>(path: string, options?: RequestInit) {
-  return fetch(path, { cache: "no-store", ...options }).then(async (r) => {
-    const j = await r.json();
-    if (!r.ok)
-      throw Object.assign(
-        Error((j as { error?: string }).error || "Could not reach the table."),
-        { status: r.status },
-      );
-    return j as R;
-  });
+  const headers = new Headers(options?.headers);
+  if (options?.method === "POST") headers.set("x-game-round", gameRound);
+  return fetch(path, { cache: "no-store", ...options, headers }).then(
+    async (r) => {
+      const j = await r.json();
+      if (!r.ok)
+        throw Object.assign(
+          Error(
+            (j as { error?: string }).error || "Could not reach the table.",
+          ),
+          { status: r.status },
+        );
+      return j as R;
+    },
+  );
 }
 function ClientCard({
   plate,
@@ -193,6 +200,10 @@ export default function Game({ user }: { user: string | null }) {
   }
   useEffect(() => {
     if (!user) {
+      sessionStorage.removeItem("judge-dean-one-tiny-revision-practice-v1");
+      sessionStorage.removeItem(
+        "judge-dean-one-tiny-revision-practice-v1-chef",
+      );
       const practice = loadPractice();
       setDraft(practice);
       setChefName(sessionStorage.getItem(key + "-chef") || "");

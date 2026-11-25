@@ -1,5 +1,6 @@
 import { getChatGPTUser } from "../../chatgpt-auth";
-import { getDb } from "../../../db";
+import { getRoundDb } from "../../../db/active-round";
+import { gameRound } from "../../game/round";
 import { plates, notes, chefs } from "../../../db/schema";
 import {
   plateSchema,
@@ -18,9 +19,9 @@ const json = (body: unknown, status = 200) =>
     headers: { "Cache-Control": "private, no-store" },
   });
 export async function GET() {
+  const db = await getRoundDb();
   const user = await getChatGPTUser();
   if (!user) return json({ signedIn: false, entries: [], notes: [] });
-  const db = getDb();
   const [rows, comments, profile] = await Promise.all([
     db.select().from(plates).orderBy(desc(plates.updated)),
     db.select().from(notes).orderBy(desc(notes.created)),
@@ -66,11 +67,16 @@ export async function POST(req: Request) {
     return json({ error: "Use the game to update your plate." }, 403);
   const u = await getChatGPTUser();
   if (!u) return json({ error: "Sign in to join the table." }, 401);
+  if (req.headers.get("x-game-round") !== gameRound)
+    return json(
+      { error: "A fresh tasting has started. Reload to join it." },
+      409,
+    );
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success)
     return json({ error: "That plate or note could not be read." }, 400);
   const b = parsed.data,
-    db = getDb(),
+    db = await getRoundDb(),
     now = Date.now();
   if (b.action === "join") {
     await db.batch([
@@ -87,7 +93,9 @@ export async function POST(req: Request) {
     .from(chefs)
     .where(eq(chefs.owner, u.userId))
     .get();
-  const chef = profile?.name || u.fullName || u.email.split("@")[0];
+  if (!profile)
+    return json({ error: "Enter a chef name to join this tasting." }, 409);
+  const chef = profile.name;
   if (b.action === "note") {
     const plate = await db
       .select({ id: plates.id })
