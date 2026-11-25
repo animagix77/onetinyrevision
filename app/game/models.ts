@@ -505,9 +505,9 @@ function glassware(g: Group, drink: Drink) {
   if (drink === "bourbon")
     box(glass, "#ded1ab", 0.06, height - 0.055, 0.03, 0.14, 0.1, 0.14, 0.025);
 }
-export function dish(p: Plate, drink?: Drink | null) {
+export function dish(p: Plate, drink?: Drink | null, withCloth = true) {
   const g = new T.Group();
-  cloth(g);
+  if (withCloth) cloth(g);
   const points = [
     [0, 0.18],
     [1.65, 0.18],
@@ -590,4 +590,238 @@ export function disposeScene(o: Group) {
       if (obj.material.vertexColors) obj.material.dispose();
     }
   });
+}
+
+function diningChair(
+  parent: Group,
+  x: number,
+  z: number,
+  angle: number,
+  head = false,
+) {
+  const chair = new T.Group();
+  chair.position.set(x, 0, z);
+  chair.rotation.y = angle;
+  parent.add(chair);
+  const wood = head ? "#593041" : "#924d3a",
+    fabric = head ? "#7e364c" : "#d79a73";
+  box(chair, wood, 0, 0.95, 0, 1.1, 0.16, 1, 0.09);
+  box(chair, fabric, 0, 1.06, 0, 1.04, 0.16, 0.94, 0.09);
+  for (const sx of [-0.42, 0.42])
+    for (const sz of [-0.37, 0.37])
+      rod(
+        chair,
+        wood,
+        [sx * 1.14, 0.01, sz * 1.16],
+        [sx, 0.95, sz],
+        0.055,
+        0.075,
+      );
+  for (const sx of [-0.43, 0.43])
+    rod(chair, wood, [sx, 0.98, -0.43], [sx, 2.1, -0.55], 0.065);
+  box(chair, fabric, 0, 1.78, -0.51, 1.09, head ? 0.96 : 0.55, 0.17, 0.08);
+  return chair;
+}
+function margoAtHead(parent: Group) {
+  const m = new T.Group();
+  parent.add(m);
+  m.position.set(-5.53, 1.02, 0);
+  m.rotation.y = 1.08;
+  // The ochre blazer, silver bob, and angular glasses echo Margo’s guest-check portrait.
+  oval(m, "#c68c2f", 0, 0.69, 0, 0.57, 0.69, 0.37, 2);
+  for (const x of [-0.25, 0.25]) {
+    const lapel = box(m, "#e0ad56", x, 0.93, 0.29, 0.18, 0.55, 0.065, 0.025);
+    lapel.rotation.z = x > 0 ? -0.31 : 0.31;
+    const arm = oval(
+      m,
+      "#c48a34",
+      Math.sign(x) * 0.48,
+      0.59,
+      0.18,
+      0.185,
+      0.5,
+      0.19,
+      1,
+    );
+    arm.rotation.x = -0.47;
+    oval(m, "#c8845d", Math.sign(x) * 0.49, 0.37, 0.39, 0.14, 0.135, 0.17);
+  }
+  oval(m, "#542b3a", 0, 0.89, 0.31, 0.22, 0.37, 0.09);
+  rod(m, "#bc7955", [0, 1.07, 0], [0, 1.45, 0], 0.16);
+  oval(m, "#cdc0b1", 0, 1.78, -0.05, 0.55, 0.64, 0.45, 2);
+  oval(m, "#d99a73", 0, 1.67, 0.095, 0.44, 0.48, 0.39, 2);
+  for (const x of [-0.425, 0.425]) {
+    oval(m, "#d4966f", x, 1.64, 0.11, 0.09, 0.14, 0.07);
+    oval(m, "#e6bd54", x, 1.51, 0.15, 0.063, 0.065, 0.045);
+  }
+  const sweep = oval(m, "#ded4c7", -0.11, 2.0, 0.19, 0.48, 0.22, 0.31, 2);
+  sweep.rotation.z = 0.28;
+  oval(m, "#b6a8a1", 0.37, 1.92, 0.11, 0.16, 0.31, 0.25);
+  for (const sign of [-1, 1]) {
+    const x = sign * 0.21,
+      y = 1.76;
+    const pts = [
+      [x - 0.176, y + 0.1, 0.424],
+      [x + 0.176, y + 0.115, 0.424],
+      [x + 0.131, y - 0.097, 0.454],
+      [x - 0.13, y - 0.096, 0.454],
+    ];
+    pts.forEach((v, i) => rod(m, "#462837", v, pts[(i + 1) % 4], 0.029));
+    oval(m, "#422839", x, y, 0.465, 0.032, 0.036, 0.024, 1);
+    rod(
+      m,
+      "#624536",
+      [x - 0.095, y + 0.148, 0.39],
+      [x + 0.096, y + 0.15 + sign * 0.034, 0.37],
+      0.027,
+    );
+  }
+  rod(m, "#462837", [-0.058, 1.79, 0.435], [0.058, 1.79, 0.435], 0.021);
+  oval(m, "#b97756", 0, 1.64, 0.459, 0.084, 0.093, 0.085);
+  rod(m, "#793f44", [-0.115, 1.49, 0.424], [0.071, 1.5, 0.438], 0.018);
+  rod(m, "#793f44", [0.071, 1.5, 0.438], [0.12, 1.526, 0.42], 0.016);
+}
+function centerpiece(parent: Group, x: number) {
+  for (const z of [-0.38, 0.38]) {
+    const h = z < 0 ? 0.63 : 0.89;
+    mesh(
+      parent,
+      new T.CylinderGeometry(0.13, 0.19, 0.075, 12),
+      "#b38a4c",
+      x,
+      1.8,
+      z,
+    );
+    rod(parent, "#c9a058", [x, 1.81, z], [x, 1.95, z], 0.075);
+    rod(parent, "#ffe5ae", [x, 1.94, z], [x, 1.94 + h, z], 0.073);
+    oval(parent, "#ffc35c", x, 2.03 + h, z, 0.046, 0.1, 0.048, 1);
+  }
+  for (let n = 0; n < 2; n++) {
+    const px = x + 0.32 + n * 0.34,
+      pz = n ? 0.15 : -0.02,
+      r = n ? 0.15 : 0.22;
+    for (let i = 0; i < 8; i++)
+      oval(
+        parent,
+        n ? "#b65c2e" : "#cf7030",
+        px + Math.cos((i * Math.PI) / 4) * r * 0.5,
+        1.78 + r * 0.67,
+        pz + Math.sin((i * Math.PI) / 4) * r * 0.5,
+        r * 0.68,
+        r * 0.8,
+        r * 0.68,
+      );
+    rod(
+      parent,
+      "#66542c",
+      [px, 1.78 + r * 1.3, pz],
+      [px + 0.035, 1.78 + r * 1.95, pz],
+      0.034,
+    );
+  }
+  sprig(parent, x - 0.2, 1.79, 0.09, -1.25, 0.65);
+}
+export function banquetModel(
+  settings: { plate: Plate; drink?: Drink | null }[],
+) {
+  const room = new T.Group();
+  const top = 1.75;
+  box(room, "#ba805f", 0, -0.15, 0, 16, 0.19, 11, 0.18);
+  box(room, "#aa5b54", 0, -0.037, 0, 12.8, 0.036, 8.45, 0.16);
+  box(room, "#c77d64", 0, -0.013, 0, 12.5, 0.024, 8.16, 0.13);
+  for (const x of [-4.3, 4.3])
+    for (const z of [-1.5, 1.5])
+      box(room, "#805039", x, 0.83, z, 0.25, 1.67, 0.27, 0.035);
+  box(room, "#8a533a", 0, 1.49, 0, 9.45, 0.32, 3.68, 0.09);
+  box(room, "#ad6c49", 0, 1.64, 0, 10.0, 0.21, 4.24, 0.15);
+  box(room, "#efe0be", 0, 1.745, 0, 9.99, 0.055, 4.2, 0.1);
+  box(room, "#904756", 0, 1.782, 0, 10, 0.035, 0.86, 0.018);
+  for (const z of [-0.35, 0.35])
+    box(room, "#eabd81", 0, 1.805, z, 9.94, 0.012, 0.014, 0.004);
+  for (const x of [-4.99, 4.99])
+    box(room, "#904756", x, 1.41, 0, 0.05, 0.72, 0.86, 0.012);
+  diningChair(room, -5.63, 0, Math.PI / 2, true);
+  margoAtHead(room);
+  // The pitch deck has followed the client to lunch, complete with her red pen.
+  box(room, "#694333", -4.42, 1.82, 0, 0.73, 0.09, 0.89, 0.04);
+  box(room, "#fff4d8", -4.42, 1.879, 0, 0.66, 0.027, 0.79, 0.015);
+  for (let i = 0; i < 3; i++)
+    box(
+      room,
+      "#a69480",
+      -4.43,
+      1.898,
+      -0.22 + i * 0.13,
+      0.4 - i * 0.06,
+      0.008,
+      0.018,
+      0.002,
+    );
+  rod(room, "#9c3032", [-4.65, 1.925, 0.25], [-4.22, 1.925, -0.04], 0.026);
+  for (const x of [-2.3, 0.1, 2.4]) centerpiece(room, x);
+  const anchors: T.Vector3[] = [];
+  for (let i = 0; i < 8; i++) {
+    const x = -3.5 + Math.floor(i / 2) * 2.34,
+      z = (i % 2 === 0 ? 1 : -1) * 1.2,
+      sign = Math.sign(z);
+    diningChair(room, x, z + sign * 1.5, sign > 0 ? Math.PI : 0);
+    const setting = settings[i];
+    const plate = dish(setting?.plate ?? [], setting?.drink, false);
+    plate.scale.setScalar(0.3);
+    plate.position.set(x, top + 0.05, z);
+    plate.rotation.y = sign > 0 ? 0 : Math.PI;
+    plate.userData.seat = i;
+    room.add(plate);
+    const napkin = box(
+      room,
+      "#71806a",
+      x - 0.91,
+      top + 0.065,
+      z,
+      0.28,
+      0.035,
+      0.61,
+      0.025,
+    );
+    napkin.rotation.y = 0.06 * sign;
+    box(room, "#c7b8a1", x + 0.89, top + 0.08, z, 0.055, 0.037, 0.69, 0.018);
+    box(
+      room,
+      "#e1d2be",
+      x - 0.9,
+      top + 0.093,
+      z + 0.07 * sign,
+      0.044,
+      0.028,
+      0.52,
+      0.009,
+    );
+    for (const off of [-0.046, 0, 0.046])
+      box(
+        room,
+        "#e6dbc7",
+        x - 0.9 + off,
+        top + 0.094,
+        z - 0.24 * sign,
+        0.022,
+        0.026,
+        0.18,
+        0.006,
+      );
+    const card = box(
+      room,
+      "#ffefc9",
+      x,
+      top + 0.17,
+      z + sign * 0.73,
+      0.72,
+      0.27,
+      0.055,
+      0.012,
+    );
+    card.rotation.x = -sign * 0.2;
+    card.userData.seat = i;
+    anchors.push(new T.Vector3(x, top + 0.35, z + sign * 0.68));
+  }
+  return { room, anchors };
 }

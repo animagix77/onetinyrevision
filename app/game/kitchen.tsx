@@ -57,8 +57,9 @@ function defaultSpot(p: Plate, k: Kind): Spot {
 }
 function batch(kind: Kind, count: number, at: Spot): Plate {
   return Array.from({ length: count }, (_, i) => {
-    const x = at.x + (i ? Math.cos(i * 2.3) * 0.23 : 0),
-      z = at.z + (i ? Math.sin(i * 2.3) * 0.34 : 0),
+    const fan = kind === "thin" && count === 2;
+    const x = at.x + (i ? (fan ? 0.34 : Math.cos(i * 2.3) * 0.23) : 0),
+      z = at.z + (i ? (fan ? 0.65 : Math.sin(i * 2.3) * 0.34) : 0),
       k = Math.min(1, 2.29 / Math.hypot(x, z));
     return { kind, x: x * k, z: z * k, size: 1 };
   });
@@ -75,7 +76,6 @@ export default function Kitchen({
   table,
 }: Props) {
   const [qty, setQty] = useState(defaultQty),
-    [selected, setSelected] = useState<Kind>("thin"),
     [message, setMessage] = useState("");
   const [ghost, setGhost] = useState<{
       kind: Kind;
@@ -114,7 +114,6 @@ export default function Kitchen({
       );
       return;
     }
-    setSelected(k);
     void save(
       [...plate, ...batch(k, n, point ?? defaultSpot(plate, k))],
       n + " × " + names[k] + " added.",
@@ -176,7 +175,6 @@ export default function Kitchen({
             dropTarget={pickPoint}
             drink={drink}
             onMove={disabled ? undefined : movePortion}
-            onPlace={disabled ? undefined : (x, z) => add(selected, { x, z })}
             pin={closed ? verdict?.pin : null}
           />
         </div>

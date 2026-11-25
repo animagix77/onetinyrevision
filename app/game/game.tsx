@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Scene from "./scene";
 import Kitchen from "./kitchen";
+import Music from "./music";
 import Banquet from "./banquet";
 import {
   brief,
@@ -141,6 +142,15 @@ export default function Game({ user }: { user: string | null }) {
   const tableEntries = user ? entries : plate.length ? [practiceEntry] : [];
   const inspect = tableEntries.find((x) => x.id === selected),
     snapshot = inspect && history >= 0 ? inspect.servings[history] : undefined;
+  const latestServing = inspect?.servings.at(-1);
+  const shownServing =
+    snapshot ??
+    (latestServing &&
+    inspect &&
+    JSON.stringify(latestServing.plate) === JSON.stringify(inspect.draft) &&
+    (latestServing.drink ?? null) === (inspect.drink ?? null)
+      ? latestServing
+      : undefined);
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [tab, selected, chefName]);
@@ -381,6 +391,7 @@ export default function Game({ user }: { user: string | null }) {
               </button>
             ))}
           </nav>
+          <Music />
           <div className="account">
             {user ? (
               <span>
@@ -410,9 +421,9 @@ export default function Game({ user }: { user: string | null }) {
               </h1>
               <p>
                 {!chefName || tab === "kitchen"
-                  ? "The pitch ran into your team’s Thanksgiving potluck. Margo sent the deck back six times. Now she’s holding out a plate. You get one revision."
+                  ? "Margo just approved the Thanksgiving campaign. Seventeen decks. One headline. Now she’s first in line at the office potluck, holding out her plate. You get one revision."
                   : inspect
-                    ? "Pull up a chair and review this plate."
+                    ? "The food has been through client review."
                     : "Pick a chef’s name card to see what they served and what Margo had to say."}
               </p>
             </div>
@@ -491,26 +502,28 @@ export default function Game({ user }: { user: string | null }) {
                   ))}
                 </select>
               </div>
-              {(snapshot || inspect.servings.at(-1)) && (
+              {shownServing && (
                 <div className="verdict-ribbon" id="client-verdict">
                   <img src="/margo.jpg" alt="Margo" />
                   <div>
                     <strong>
-                      Margo’s verdict ·{" "}
-                      {(snapshot || inspect.servings.at(-1))!.verdict.score}/3
+                      Margo’s verdict · {shownServing.verdict.score}/3
                     </strong>
-                    <blockquote>
-                      “{(snapshot || inspect.servings.at(-1))!.verdict.note}”
-                    </blockquote>
+                    <blockquote>“{shownServing.verdict.note}”</blockquote>
                   </div>
                 </div>
+              )}
+              {!shownServing && (
+                <p className="awaiting-verdict">
+                  In the kitchen · Margo reviews this plate when it’s served.
+                </p>
               )}
               <Scene
                 roast={false}
                 drink={snapshot ? snapshot.drink : inspect.drink}
                 label={snapshot ? "SERVED PLATE" : "CURRENT PLATE"}
                 plate={snapshot?.plate || inspect.draft}
-                pin={(snapshot || inspect.servings.at(-1))?.verdict.pin}
+                pin={shownServing?.verdict.pin}
               />
               <div className="toolbar">
                 <p className="served-menu">
