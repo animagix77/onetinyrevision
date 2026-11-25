@@ -1,3 +1,4 @@
+import { firstWetPour } from "./models";
 import { margoLines } from "./margo-lines";
 import { z } from "zod";
 export const kinds = [
@@ -94,13 +95,7 @@ export function assess(p: Plate) {
   const turkey = p.filter((f) => meat(f.kind)),
     sides = p.filter((f) => side(f.kind)),
     sauce = p.filter((f) => f.kind === "gravy");
-  const wet = sauce.find(
-    (g) =>
-      !g.inBoat &&
-      turkey.some(
-        (t) => Math.hypot(t.x - g.x, t.z - g.z) < 0.48 + 0.43 * g.size,
-      ),
-  );
+  const wet = firstWetPour(p, turkey);
   const checks = [
     turkey.length === 2 && turkey.every((f) => f.kind === "thin"),
     sides.length === 2 && new Set(sides.map((f) => f.kind)).size === 2,

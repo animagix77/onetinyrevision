@@ -57,8 +57,10 @@ function batchRoom(room: T.Group) {
 export default function Banquet({
   entries,
   open,
+  verdict,
 }: {
   entries: Entry[];
+  verdict?: Entry["servings"][number]["verdict"];
   open: (entry: Entry) => void;
 }) {
   const [capacity, setCapacity] = useState(8);
@@ -298,10 +300,20 @@ export default function Banquet({
   }, [sceneKey]);
   return (
     <section className="banquet-room" aria-label="Margo’s 3D banquet table">
-      <div className="banquet-caption">
-        <strong>Margo Vale</strong>
-        <q>I’ll be judging this blind. Leave your names on.</q>
-      </div>
+      {verdict ? (
+        <div className="verdict-ribbon" role="status" aria-atomic="true">
+          <img src="/margo.jpg" alt="" />
+          <div>
+            <strong>Margo’s verdict on your plate · {verdict.score}/3</strong>
+            <blockquote>“{verdict.note}”</blockquote>
+          </div>
+        </div>
+      ) : (
+        <div className="banquet-caption">
+          <strong>Margo Vale</strong>
+          <q>I’ll be judging this blind. Leave your names on.</q>
+        </div>
+      )}
       <div className={"banquet-stage" + (fallback ? " no-3d" : "")} ref={host}>
         {fallback && (
           <p>

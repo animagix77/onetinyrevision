@@ -563,6 +563,25 @@ export function dish(p: Plate, drink?: Drink | null, withCloth = true) {
   return g;
 }
 
+// Score on the same plate surface and with the same pour geometry that players see.
+export function firstWetPour(plate: Plate, turkey: Food[]) {
+  const pours = plate.filter((f) => f.kind === "gravy" && !f.inBoat);
+  if (!turkey.length || !pours.length) return undefined;
+  const surface = new PlateSurface();
+  const solids = new T.Group();
+  for (const item of plate) {
+    if (item.kind === "gravy" || item.kind === "cranberry") continue;
+    const portion = food(solids, item);
+    surface.add(portion, turkey.includes(item) ? "turkey" : "food");
+  }
+  disposeScene(solids);
+  for (const pour of pours) {
+    const pool = gravyPour(pour, surface);
+    const wet = surface.add(pool, "gravy");
+    pool.geometry.dispose();
+    if (wet) return pour;
+  }
+}
 export function settleToppings(g: T.Group, p: Plate) {
   if (
     !p.some((f) => f.kind === "cranberry" || (f.kind === "gravy" && !f.inBoat))

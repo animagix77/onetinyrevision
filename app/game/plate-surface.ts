@@ -17,7 +17,10 @@ function china(x: number, z: number) {
 }
 export class PlateSurface {
   private heights = new Float32Array(stride * stride);
-  add(model: T.Object3D) {
+  private turkey?: Uint8Array;
+  add(model: T.Object3D, layer: "food" | "turkey" | "gravy" = "food") {
+    if (layer === "turkey") this.turkey ??= new Uint8Array(stride * stride);
+    let touchesTurkey = false;
     model.updateWorldMatrix(true, true);
     const point = new T.Vector3();
     model.traverse((part) => {
@@ -58,10 +61,17 @@ export class PlateSurface {
             const v = (bx * (z - az) - bz * (x - ax)) / det;
             if (u < 0 || v < 0 || u + v > 1) continue;
             const k = z * stride + x;
-            this.heights[k] = Math.max(this.heights[k], ay + u * by + v * cy);
+            const height = ay + u * by + v * cy;
+            if (height < this.heights[k]) continue;
+            if (this.turkey) {
+              if (layer === "gravy" && this.turkey[k]) touchesTurkey = true;
+              this.turkey[k] = layer === "turkey" ? 1 : 0;
+            }
+            this.heights[k] = height;
           }
       }
     });
+    return touchesTurkey;
   }
   at(x: number, z: number) {
     const xx = T.MathUtils.clamp((x + edge) / step, 0, cells - 0.001);

@@ -118,6 +118,7 @@ export default function Game({ user }: { user: string | null }) {
     [error, setError] = useState(""),
     [revising, setRevising] = useState(false),
     [selected, setSelected] = useState(""),
+    [revealed, setRevealed] = useState<Serving["verdict"]>(),
     [history, setHistory] = useState(-1),
     [comment, setComment] = useState(""),
     [chefName, setChefName] = useState(""),
@@ -315,6 +316,7 @@ export default function Game({ user }: { user: string | null }) {
       latest.current = result.version;
       setDraft(result);
       if (serve) {
+        setRevealed(result.servings.at(-1)?.verdict);
         setRevising(false);
         setSelected("");
         setTab("table");
@@ -382,6 +384,7 @@ export default function Game({ user }: { user: string | null }) {
                 className={tab === t ? "active" : ""}
                 onClick={() => {
                   setTab(t);
+                  setRevealed(undefined);
                   setError("");
                   if (t === "table") setSelected("");
                 }}
@@ -579,13 +582,15 @@ export default function Game({ user }: { user: string | null }) {
             </section>
             <ClientCard
               plate={snapshot?.plate || inspect.draft}
-              checks={snapshot?.verdict.checks}
+              checks={shownServing?.verdict.checks}
             />
           </div>
         ) : (
           <Banquet
             entries={tableEntries}
+            verdict={revealed}
             open={(e) => {
+              setRevealed(undefined);
               setSelected(e.id);
               setHistory(e.servings.length - 1);
               setComment("");
