@@ -1,7 +1,12 @@
 import { getChatGPTUser } from "../../chatgpt-auth";
 import { getDb } from "../../../db";
-import { plates, notes } from "../../../db/schema";
-import { plateSchema, review, type Serving } from "../../game/rules";
+import { plates, notes, chefs } from "../../../db/schema";
+import {
+  plateSchema,
+  drinkSchema,
+  review,
+  type Serving,
+} from "../../game/rules";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 export const dynamic = "force-dynamic";
@@ -14,12 +19,14 @@ export async function GET() {
   const user = await getChatGPTUser();
   if (!user) return json({ signedIn: false, entries: [], notes: [] });
   const db = getDb();
-  const [rows, comments] = await Promise.all([
+  const [rows, comments, profile] = await Promise.all([
     db.select().from(plates).orderBy(desc(plates.updated)),
     db.select().from(notes).orderBy(desc(notes.created)),
+    db.select().from(chefs).where(eq(chefs.owner, user.userId)).get(),
   ]);
   return json({
     signedIn: true,
+    name: profile?.name ?? null,
     entries: rows.map(({ owner, draft, servings, ...row }) => ({
       ...row,
       mine: owner === user.userId,
@@ -31,6 +38,15 @@ export async function GET() {
 }
 const bodySchema = z.discriminatedUnion("action", [
   z.object({
+    action: z.literal("join"),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(32)
+      .regex(/^[^\u0000-\u001F\u007F]+$/),
+  }),
+  z.object({
     action: z.literal("note"),
     id: z.string().uuid(),
     message: z.string().trim().min(1).max(240),
@@ -39,6 +55,7 @@ const bodySchema = z.discriminatedUnion("action", [
     action: z.enum(["save", "serve"]),
     version: z.number().int().nonnegative(),
     plate: plateSchema,
+    drink: drinkSchema.nullable().optional(),
   }),
 ]);
 export async function POST(req: Request) {
@@ -52,8 +69,23 @@ export async function POST(req: Request) {
     return json({ error: "That plate or note could not be read." }, 400);
   const b = parsed.data,
     db = getDb(),
-    chef = u.fullName || u.email.split("@")[0],
     now = Date.now();
+  if (b.action === "join") {
+    await db.batch([
+      db
+        .insert(chefs)
+        .values({ owner: u.userId, name: b.name })
+        .onConflictDoUpdate({ target: chefs.owner, set: { name: b.name } }),
+      db.update(plates).set({ chef: b.name }).where(eq(plates.owner, u.userId)),
+    ]);
+    return json({ name: b.name });
+  }
+  const profile = await db
+    .select()
+    .from(chefs)
+    .where(eq(chefs.owner, u.userId))
+    .get();
+  const chef = profile?.name || u.fullName || u.email.split("@")[0];
   if (b.action === "note") {
     const plate = await db
       .select({ id: plates.id })
@@ -61,15 +93,13 @@ export async function POST(req: Request) {
       .where(eq(plates.id, b.id))
       .get();
     if (!plate) return json({ error: "Plate not found." }, 404);
-    await db
-      .insert(notes)
-      .values({
-        id: crypto.randomUUID(),
-        plate: b.id,
-        chef,
-        message: b.message,
-        created: now,
-      });
+    await db.insert(notes).values({
+      id: crypto.randomUUID(),
+      plate: b.id,
+      chef,
+      message: b.message,
+      created: now,
+    });
     return json({ ok: true });
   }
   const row = await db
@@ -88,12 +118,23 @@ export async function POST(req: Request) {
   const servings: Serving[] = row ? JSON.parse(row.servings) : [];
   if (servings.length >= 2)
     return json({ error: "This plate has its final verdict." }, 409);
+  const drink =
+    b.drink === undefined
+      ? (drinkSchema.safeParse(row?.drink).data ?? null)
+      : b.drink;
   if (b.action === "serve") {
     if (!b.plate.length)
       return json({ error: "Add something to the plate first." }, 400);
-    servings.push({ plate: b.plate, verdict: review(b.plate), at: now });
+    servings.push({
+      plate: b.plate,
+      drink,
+      verdict: review(b.plate, servings.at(-1)?.verdict.note),
+      at: now,
+    });
   }
   const data = {
+    drink,
+    chef,
     draft: JSON.stringify(b.plate),
     servings: JSON.stringify(servings),
     updated: now,
@@ -108,7 +149,7 @@ export async function POST(req: Request) {
         .returning({ id: plates.id })
     : await db
         .insert(plates)
-        .values({ ...data, id, owner: u.userId, chef })
+        .values({ ...data, id, owner: u.userId })
         .onConflictDoNothing()
         .returning({ id: plates.id });
   return written.length

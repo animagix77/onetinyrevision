@@ -9,12 +9,16 @@ import {
   LogIn,
   Flame,
   Send,
-  HandPlatter,
 } from "lucide-react";
 import Scene from "./scene";
 import Kitchen from "./kitchen";
+import Banquet from "./banquet";
 import {
   brief,
+  assess,
+  drinkNames,
+  portionList,
+  type Drink,
   review,
   plateSchema,
   type Entry,
@@ -24,7 +28,12 @@ import {
 } from "./rules";
 const key = "judge-dean-one-tiny-revision-practice-v1";
 const empty: Plate = [];
-type Draft = { plate: Plate; servings: Serving[]; version: number };
+type Draft = {
+  drink?: Drink | null;
+  plate: Plate;
+  servings: Serving[];
+  version: number;
+};
 const fresh: Draft = { plate: empty, servings: [], version: 0 };
 function loadPractice(): Draft {
   try {
@@ -55,8 +64,13 @@ async function dataUrl<R = unknown>(path: string, options?: RequestInit) {
     return j as R;
   });
 }
-function ClientCard({ plate, serving }: { plate: Plate; serving?: Serving }) {
-  const checks = review(plate).checks;
+function ClientCard({
+  plate,
+  checks = assess(plate).checks,
+}: {
+  plate: Plate;
+  checks?: boolean[];
+}) {
   return (
     <aside className="client-column" id="guest-check">
       <div className="ticket">
@@ -72,8 +86,8 @@ function ClientCard({ plate, serving }: { plate: Plate; serving?: Serving }) {
           </div>
         </div>
         <div className="quote">
-          “Two thin slices. Two sides. Gravy on the side. I’d like the skin to
-          stay <em>crisp.</em>”
+          “Two thin slices. One scoop each of two different sides. Gravy on the
+          side. I’d like the skin to stay <em>crisp.</em>”
         </div>
         <div className="brief">
           <span className="eyebrow">THE NON-NEGOTIABLES</span>
@@ -88,14 +102,6 @@ function ClientCard({ plate, serving }: { plate: Plate; serving?: Serving }) {
           <Flame size={15} /> Client difficulty <b>High</b>
         </div>
       </div>
-      {serving && (
-        <div className="note-card" id="client-verdict">
-          <span className="eyebrow">
-            MARGO’S VERDICT · {serving.verdict.score}/3
-          </span>
-          <p>“{serving.verdict.note}”</p>
-        </div>
-      )}
     </aside>
   );
 }
@@ -110,19 +116,37 @@ export default function Game({ user }: { user: string | null }) {
     [revising, setRevising] = useState(false),
     [selected, setSelected] = useState(""),
     [history, setHistory] = useState(-1),
-    [comment, setComment] = useState("");
+    [comment, setComment] = useState(""),
+    [chefName, setChefName] = useState(""),
+    [nameInput, setNameInput] = useState("");
+  const initialLoad = useRef(true);
   const lock = useRef(false),
     generation = useRef(0),
     latest = useRef(0);
   const plate = draft.plate,
     served = draft.servings.length,
     locked = served === 2 || (served === 1 && !revising);
-  const inspect = entries.find((x) => x.id === selected),
+  const practiceEntry: Entry = {
+    id: "practice",
+    chef: chefName,
+    draft: plate,
+    drink: draft.drink,
+    servings: draft.servings,
+    version: draft.version,
+    updated: 0,
+    mine: true,
+  };
+  const tableEntries = user ? entries : plate.length ? [practiceEntry] : [];
+  const inspect = tableEntries.find((x) => x.id === selected),
     snapshot = inspect && history >= 0 ? inspect.servings[history] : undefined;
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab, selected, chefName]);
   async function refresh(hydrate = false) {
     const stamp = ++generation.current;
     const data = await dataUrl<{
       signedIn: boolean;
+      name?: string;
       entries: Entry[];
       notes: Note[];
     }>("/api/table");
@@ -131,22 +155,35 @@ export default function Game({ user }: { user: string | null }) {
       throw Error(
         "Your session has expired. Sign in again to load your plate.",
       );
+    setChefName(data.name || "");
     setEntries(data.entries);
     setNotes(data.notes);
     const me: Entry | undefined = data.entries.find((e: Entry) => e.mine);
+    if (initialLoad.current) {
+      initialLoad.current = false;
+      if (me?.servings.length) setTab("table");
+    }
     if (
       user &&
       me &&
       (hydrate || (!lock.current && me.version > latest.current))
     ) {
       latest.current = me.version;
-      setDraft({ plate: me.draft, servings: me.servings, version: me.version });
+      setDraft({
+        drink: me.drink,
+        plate: me.draft,
+        servings: me.servings,
+        version: me.version,
+      });
     }
     setReady(true);
   }
   useEffect(() => {
     if (!user) {
-      setDraft(loadPractice());
+      const practice = loadPractice();
+      setDraft(practice);
+      setChefName(sessionStorage.getItem(key + "-chef") || "");
+      if (practice.servings.length) setTab("table");
       setReady(true);
       return;
     }
@@ -168,8 +205,40 @@ export default function Game({ user }: { user: string | null }) {
       generation.current++;
     };
   }, [user]);
-  async function change(next: Plate, serve = false) {
-    if (lock.current || !ready || locked) return false;
+  async function join(e: React.FormEvent) {
+    e.preventDefault();
+    const name = nameInput.trim();
+    if (!name || lock.current || !ready) return;
+    lock.current = true;
+    setWorking(true);
+    setError("");
+    generation.current++;
+    try {
+      if (user)
+        await dataUrl("/api/table", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "join", name }),
+        });
+      else sessionStorage.setItem(key + "-chef", name);
+      generation.current++;
+      setChefName(name);
+      setEntries((rows) =>
+        rows.map((r) => (r.mine ? { ...r, chef: name } : r)),
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      lock.current = false;
+      setWorking(false);
+    }
+  }
+  async function change(
+    next: Plate,
+    serve = false,
+    drink: Drink | null = draft.drink ?? null,
+  ) {
+    if (lock.current || !ready || !chefName || locked) return false;
     lock.current = true;
     setWorking(true);
     setError("");
@@ -177,26 +246,50 @@ export default function Game({ user }: { user: string | null }) {
     try {
       let result: Draft;
       if (user) {
-        const r = await dataUrl<{ servings: Serving[]; version: number }>(
-          "/api/table",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: serve ? "serve" : "save",
-              plate: next,
-              version: draft.version,
-            }),
-          },
-        );
-        result = { plate: next, servings: r.servings, version: r.version };
+        const r = await dataUrl<{
+          id: string;
+          servings: Serving[];
+          version: number;
+        }>("/api/table", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: serve ? "serve" : "save",
+            drink,
+            plate: next,
+            version: draft.version,
+          }),
+        });
+        result = {
+          drink,
+          plate: next,
+          servings: r.servings,
+          version: r.version,
+        };
+        const own: Entry = {
+          id: r.id,
+          mine: true,
+          chef: chefName,
+          draft: next,
+          drink,
+          servings: r.servings,
+          version: r.version,
+          updated: Date.now(),
+        };
+        setEntries((rows) => [own, ...rows.filter((e) => !e.mine)]);
       } else {
         result = {
+          drink,
           plate: next,
           servings: serve
             ? [
                 ...draft.servings,
-                { plate: next, verdict: review(next), at: Date.now() },
+                {
+                  drink,
+                  plate: next,
+                  verdict: review(next, draft.servings.at(-1)?.verdict.note),
+                  at: Date.now(),
+                },
               ]
             : draft.servings,
           version: draft.version + 1,
@@ -205,7 +298,11 @@ export default function Game({ user }: { user: string | null }) {
       }
       latest.current = result.version;
       setDraft(result);
-      if (serve) setRevising(false);
+      if (serve) {
+        setRevising(false);
+        setSelected("");
+        setTab("table");
+      }
       if (user) void refresh().catch(() => {});
       return true;
     } catch (e) {
@@ -282,7 +379,7 @@ export default function Game({ user }: { user: string | null }) {
             {user ? (
               <span>
                 <ChefHat size={16} />
-                {user}
+                {chefName || user}
               </span>
             ) : (
               sign
@@ -291,28 +388,30 @@ export default function Game({ user }: { user: string | null }) {
         </div>
       </header>
       <main>
-        <div className="heading">
-          <div>
-            <div className="edition">
-              <span className="star">✳</span> THANKSGIVING SERVICE
+        {(!chefName || tab !== "kitchen") && (
+          <div className="heading">
+            <div>
+              <div className="edition">
+                <span className="star">✳</span> THANKSGIVING SERVICE
+              </div>
+              <h1>
+                {!chefName || tab === "kitchen"
+                  ? "The client stayed for dinner"
+                  : inspect
+                    ? inspect.chef + "’s plate"
+                    : "The banquet table"}
+                <b>.</b>
+              </h1>
+              <p>
+                {!chefName || tab === "kitchen"
+                  ? "The pitch ran into your team’s Thanksgiving potluck. Margo sent the deck back six times. Now she’s holding out a plate. You get one revision."
+                  : inspect
+                    ? "Pull up a chair and review this plate."
+                    : "Pick a chef’s name card to see what they served and what Margo had to say."}
+              </p>
             </div>
-            <h1>
-              {tab === "kitchen"
-                ? "The client stayed for dinner"
-                : inspect
-                  ? inspect.chef + "’s plate"
-                  : "The banquet table"}
-              <b>.</b>
-            </h1>
-            <p>
-              {tab === "kitchen"
-                ? "The pitch ran into your team’s Thanksgiving potluck. Margo sent the deck back six times. Now she’s holding out a plate. You get one revision."
-                : inspect
-                  ? "Pull up a chair and review this plate."
-                  : "Your team’s plates, client verdicts, and kitchen notes."}
-            </p>
           </div>
-        </div>
+        )}
         {error && (
           <div className="error" role="alert">
             {error}{" "}
@@ -329,8 +428,32 @@ export default function Game({ user }: { user: string | null }) {
             )}
           </div>
         )}
-        {tab === "kitchen" ? (
+        {!chefName ? (
+          <section className="name-start service-board">
+            <Scene plate={empty} roast />
+            <form className="order-controls" onSubmit={join}>
+              <h2>Whose plate is it?</h2>
+              <label htmlFor="chef-name">Name on your place card</label>
+              <input
+                id="chef-name"
+                autoComplete="nickname"
+                maxLength={32}
+                placeholder="Your name or nickname"
+                required
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+              />
+              <button
+                className="primary"
+                disabled={!ready || working || !nameInput.trim()}
+              >
+                Start plating
+              </button>
+            </form>
+          </section>
+        ) : tab === "kitchen" ? (
           <Kitchen
+            drink={draft.drink ?? null}
             plate={plate}
             servings={draft.servings}
             busy={working}
@@ -342,10 +465,10 @@ export default function Game({ user }: { user: string | null }) {
               setSelected("");
               setTab("table");
             }}
-            user={user}
+            user={chefName || user}
           />
         ) : inspect ? (
-          <div className="layout">
+          <div className="layout plate-detail">
             <section className="station">
               <div className="panel-title">
                 <button onClick={() => setSelected("")}>All plates</button>
@@ -362,6 +485,20 @@ export default function Game({ user }: { user: string | null }) {
                   ))}
                 </select>
               </div>
+              {(snapshot || inspect.servings.at(-1)) && (
+                <div className="verdict-ribbon" id="client-verdict">
+                  <img src="/margo.jpg" alt="Margo" />
+                  <div>
+                    <strong>
+                      Margo’s verdict ·{" "}
+                      {(snapshot || inspect.servings.at(-1))!.verdict.score}/3
+                    </strong>
+                    <blockquote>
+                      “{(snapshot || inspect.servings.at(-1))!.verdict.note}”
+                    </blockquote>
+                  </div>
+                </div>
+              )}
               <Scene
                 roast={false}
                 label={snapshot ? "SERVED PLATE" : "CURRENT PLATE"}
@@ -369,23 +506,46 @@ export default function Game({ user }: { user: string | null }) {
                 pin={(snapshot || inspect.servings.at(-1))?.verdict.pin}
               />
               <div className="toolbar">
-                <h2>Kitchen notes</h2>
-                <form onSubmit={addNote}>
-                  <input
-                    aria-label="Kitchen note"
-                    placeholder="Leave a note for the chef…"
-                    maxLength={240}
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                  />
+                <p className="served-menu">
+                  {portionList(snapshot?.plate ?? inspect.draft) ||
+                    "Empty plate"}
+                  {(snapshot ? snapshot.drink : inspect.drink)
+                    ? " · " +
+                      drinkNames[(snapshot ? snapshot.drink : inspect.drink)!]
+                    : ""}
+                </p>
+                {inspect.mine && inspect.servings.length === 1 && (
                   <button
-                    className="primary"
-                    disabled={working || !comment.trim()}
+                    className="secondary"
+                    onClick={() => {
+                      setRevising(true);
+                      setTab("kitchen");
+                    }}
                   >
-                    <Send />
-                    Post
+                    Use my revision
                   </button>
-                </form>
+                )}
+                {user && (
+                  <>
+                    <h2>Kitchen notes</h2>
+                    <form onSubmit={addNote}>
+                      <input
+                        aria-label="Kitchen note"
+                        placeholder="Leave a note for the chef…"
+                        maxLength={240}
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                      />
+                      <button
+                        className="primary"
+                        disabled={working || !comment.trim()}
+                      >
+                        <Send />
+                        Post
+                      </button>
+                    </form>
+                  </>
+                )}
                 {notes
                   .filter((n) => n.plate === inspect.id)
                   .map((n) => (
@@ -397,79 +557,18 @@ export default function Game({ user }: { user: string | null }) {
             </section>
             <ClientCard
               plate={snapshot?.plate || inspect.draft}
-              serving={snapshot || inspect.servings.at(-1)}
+              checks={snapshot?.verdict.checks}
             />
           </div>
         ) : (
-          <section className="gallery">
-            {!user ? (
-              <div className="empty">
-                <UsersRound />
-                <h2>Take a seat at the table.</h2>
-                <p>
-                  Sign in to share your plate and see what your teammates are
-                  serving.
-                </p>
-                {sign}
-              </div>
-            ) : !entries.length ? (
-              <div className="empty">
-                <HandPlatter />
-                <h2>{ready ? "The table is set." : "Setting the table…"}</h2>
-                <p>
-                  Your team’s first plates will appear here as soon as carving
-                  begins.
-                </p>
-                <button className="primary" onClick={() => setTab("kitchen")}>
-                  Go to kitchen
-                </button>
-              </div>
-            ) : (
-              entries.map((e) => (
-                <button
-                  className="gallery-card"
-                  key={e.id}
-                  onClick={() => {
-                    setSelected(e.id);
-                    setHistory(-1);
-                    setComment("");
-                  }}
-                >
-                  <div className="plate-thumb" aria-hidden="true">
-                    <div>
-                      {e.draft.map((f, i) => (
-                        <i
-                          key={i}
-                          className={"food-dot " + f.kind}
-                          style={{
-                            left: 50 + f.x * 20 + "%",
-                            top: 50 + f.z * 20 + "%",
-                            transform:
-                              "translate(-50%,-50%) scale(" + f.size + ")",
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <strong>
-                      {e.chef}
-                      {e.mine ? " (you)" : ""}
-                    </strong>
-                    <p>
-                      {e.draft.length} items ·{" "}
-                      {
-                        ["In the kitchen", "First serving", "Final plate"][
-                          e.servings.length
-                        ]
-                      }
-                    </p>
-                  </div>
-                  <span>{e.servings.at(-1)?.verdict.score ?? "–"}/3</span>
-                </button>
-              ))
-            )}
-          </section>
+          <Banquet
+            entries={tableEntries}
+            open={(e) => {
+              setSelected(e.id);
+              setHistory(e.servings.length - 1);
+              setComment("");
+            }}
+          />
         )}
       </main>
       <footer>

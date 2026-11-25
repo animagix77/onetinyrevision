@@ -8,11 +8,21 @@ import type { Plate } from "./rules";
 type Props = {
   plate: Plate;
   roast: boolean;
+  dropTarget?: React.RefObject<
+    ((x: number, y: number) => { x: number; z: number } | null) | null
+  >;
   onPlace?: (x: number, z: number, seconds: number) => void;
   pin?: { x: number; z: number } | null;
   label?: string;
 };
-export default function Scene({ plate, roast, onPlace, pin, label }: Props) {
+export default function Scene({
+  plate,
+  roast,
+  onPlace,
+  pin,
+  label,
+  dropTarget,
+}: Props) {
   const mount = useRef<HTMLDivElement>(null),
     api = useRef<{
       turn: (n: number) => void;
@@ -80,7 +90,11 @@ export default function Scene({ plate, roast, onPlace, pin, label }: Props) {
         h = host.clientHeight;
       if (!w || !h) return;
       renderer.setSize(w, h);
-      const half = Math.max(2.04, (3.87 * h) / w) / zoom;
+      const half =
+        Math.max(
+          current.current.roast ? 2.04 : 1.65,
+          ((current.current.roast ? 3.87 : 2.95) * h) / w,
+        ) / zoom;
       camera.left = (-half * w) / h;
       camera.right = (half * w) / h;
       camera.top = half;
@@ -141,28 +155,39 @@ export default function Scene({ plate, roast, onPlace, pin, label }: Props) {
       if (!dragging) return;
       dragging = false;
       if (moved || !current.current.onPlace) return;
+      const spot = platePoint(e.clientX, e.clientY);
+      if (spot)
+        current.current.onPlace(
+          spot.x,
+          spot.z,
+          (performance.now() - startTime) / 1000,
+        );
+    };
+    function platePoint(clientX: number, clientY: number) {
       const r = host.getBoundingClientRect();
+      if (
+        clientX < r.left ||
+        clientX > r.right ||
+        clientY < r.top ||
+        clientY > r.bottom
+      )
+        return null;
       ray.setFromCamera(
         new T.Vector2(
-          ((e.clientX - r.left) / r.width) * 2 - 1,
-          1 - ((e.clientY - r.top) / r.height) * 2,
+          ((clientX - r.left) / r.width) * 2 - 1,
+          1 - ((clientY - r.top) / r.height) * 2,
         ),
         camera,
       );
-      if (ray.ray.intersectPlane(plane, point)) {
-        if (current.current.roast) {
-          if (Math.abs(point.x) < 1.9 && Math.abs(point.z) < 2.2)
-            current.current.onPlace(0, 0, 0);
-        } else if (Math.hypot(point.x, point.z) < 2.16) {
-          const k = Math.min(1, 1.87 / Math.hypot(point.x, point.z));
-          current.current.onPlace(
-            point.x * k,
-            point.z * k,
-            (performance.now() - startTime) / 1000,
-          );
-        }
-      }
-    };
+      if (
+        !ray.ray.intersectPlane(plane, point) ||
+        Math.hypot(point.x, point.z) > 2.34
+      )
+        return null;
+      const k = Math.min(1, 2.29 / Math.hypot(point.x, point.z));
+      return { x: point.x * k, z: point.z * k };
+    }
+    if (dropTarget) dropTarget.current = platePoint;
     const cancel = () => {
       dragging = false;
     };
@@ -173,6 +198,7 @@ export default function Scene({ plate, roast, onPlace, pin, label }: Props) {
     const observer = new ResizeObserver(draw);
     observer.observe(host);
     return () => {
+      if (dropTarget) dropTarget.current = null;
       observer.disconnect();
       host.removeEventListener("pointerdown", down);
       host.removeEventListener("pointermove", move);

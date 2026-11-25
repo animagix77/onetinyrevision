@@ -428,7 +428,9 @@ export function dish(p: Plate) {
     [1.55, 0.08],
     [0.5, 0.07],
     [0, 0.07],
-  ].map(([r, y]) => new T.Vector2(r, y));
+  ]
+    .reverse()
+    .map(([r, y]) => new T.Vector2(r, y));
   mesh(g, new T.LatheGeometry(points, 80), "#fff6da", 0, 0, 0);
   const rim = mesh(
     g,
@@ -439,7 +441,15 @@ export function dish(p: Plate) {
     0,
   );
   rim.rotation.x = Math.PI / 2;
-  p.forEach((f) => food(g, f));
+  const solids = p.filter((f) => f.kind !== "gravy").map((f) => food(g, f));
+  g.updateMatrixWorld(true);
+  const ray = new T.Raycaster();
+  for (const pour of p.filter((f) => f.kind === "gravy")) {
+    ray.set(new T.Vector3(pour.x, 4, pour.z), new T.Vector3(0, -1, 0));
+    const hit = ray.intersectObjects(solids, true)[0];
+    const pool = food(g, pour);
+    if (hit) pool.position.y = hit.point.y + 0.012;
+  }
   return g;
 }
 export function disposeScene(o: Group) {
