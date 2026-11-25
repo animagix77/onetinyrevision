@@ -1,6 +1,7 @@
 import * as T from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { Food, Plate, Drink } from "./rules";
+import { PlateSurface, gravyPour } from "./plate-surface";
 type Group = T.Object3D;
 const materials = new Map<string, T.MeshStandardMaterial>();
 function mat(c: string) {
@@ -350,7 +351,7 @@ export function board(p: Plate) {
   }
   return g;
 }
-export function food(g: Group, f: Food) {
+function food(g: Group, f: Food) {
   const p = new T.Group();
   p.position.set(f.x, 0.31, f.z);
   g.add(p);
@@ -401,17 +402,6 @@ export function food(g: Group, f: Food) {
       );
       b.rotation.y = i * 0.13 - 0.35;
     }
-  } else if (f.kind === "cranberry") {
-    for (let i = 0; i < 16; i++)
-      berry(
-        p,
-        Math.sin(i * 2.4) * 0.24 * (i / 16),
-        0.1 + (1 - i / 16) * 0.2,
-        Math.cos(i * 2.4) * 0.24 * (i / 16),
-        0.125,
-      );
-  } else {
-    oval(p, "#94502f", 0, 0.008, 0, 0.48 * f.size, 0.038, 0.43 * f.size, 2);
   }
   return p;
 }
@@ -531,12 +521,10 @@ export function dish(p: Plate, drink?: Drink | null, withCloth = true) {
     0,
   );
   rim.rotation.x = Math.PI / 2;
-  const solids: T.Object3D[] = [];
   for (const [index, item] of p.entries()) {
-    if (item.kind === "gravy") continue;
+    if (item.kind === "gravy" || item.kind === "cranberry") continue;
     const model = food(g, item);
     model.userData.portionIndex = index;
-    solids.push(model);
   }
   if (drink) glassware(g, drink);
   const boatIndex = p.findIndex((f) => f.inBoat);
@@ -571,17 +559,47 @@ export function dish(p: Plate, drink?: Drink | null, withCloth = true) {
       0.27 + Math.min(0.11, p.filter((f) => f.inBoat).length * 0.025);
     oval(boat, "#925132", 0, level, 0, 0.54, 0.021, 0.35, 2);
   }
-  g.updateMatrixWorld(true);
-  const ray = new T.Raycaster();
-  for (const [index, pour] of p.entries()) {
-    if (pour.kind !== "gravy" || pour.inBoat) continue;
-    ray.set(new T.Vector3(pour.x, 4, pour.z), new T.Vector3(0, -1, 0));
-    const hit = ray.intersectObjects(solids, true)[0];
-    const pool = food(g, pour);
-    pool.userData.portionIndex = index;
-    if (hit) pool.position.y = hit.point.y + 0.012;
-  }
+  settleToppings(g, p);
   return g;
+}
+
+export function settleToppings(g: T.Group, p: Plate) {
+  if (
+    !p.some((f) => f.kind === "cranberry" || (f.kind === "gravy" && !f.inBoat))
+  )
+    return;
+  const surface = new PlateSurface();
+  for (const child of [...g.children]) {
+    const index = child.userData.portionIndex;
+    if (child.userData.topping) {
+      g.remove(child);
+      disposeScene(child);
+    } else if (index !== undefined && !p[index].inBoat) {
+      surface.add(child);
+    }
+  }
+  for (const [index, portion] of p.entries()) {
+    if (portion.kind !== "gravy" || portion.inBoat) continue;
+    const pool = gravyPour(portion, surface);
+    pool.userData = { portionIndex: index, topping: true, gravy: true };
+    g.add(pool);
+    surface.add(pool);
+  }
+  for (const [index, portion] of p.entries()) {
+    if (portion.kind !== "cranberry") continue;
+    const pile = new T.Group();
+    pile.position.set(portion.x, 0, portion.z);
+    pile.userData = { portionIndex: index, topping: true };
+    g.add(pile);
+    for (let i = 0; i < 16; i++) {
+      const r = i / 16;
+      const x = Math.sin(i * 2.4) * 0.24 * r,
+        z = Math.cos(i * 2.4) * 0.24 * r;
+      const h = surface.at(portion.x + x, portion.z + z);
+      berry(pile, x, h + 0.113 + (1 - r) * 0.16, z, 0.125);
+    }
+    surface.add(pile);
+  }
 }
 export function disposeScene(o: Group) {
   o.traverse((obj) => {
@@ -592,19 +610,13 @@ export function disposeScene(o: Group) {
   });
 }
 
-function diningChair(
-  parent: Group,
-  x: number,
-  z: number,
-  angle: number,
-  head = false,
-) {
+function diningChair(parent: Group, x: number, z: number, angle: number) {
   const chair = new T.Group();
   chair.position.set(x, 0, z);
   chair.rotation.y = angle;
   parent.add(chair);
-  const wood = head ? "#593041" : "#924d3a",
-    fabric = head ? "#7e364c" : "#d79a73";
+  const wood = "#593041",
+    fabric = "#7e364c";
   box(chair, wood, 0, 0.95, 0, 1.1, 0.16, 1, 0.09);
   box(chair, fabric, 0, 1.06, 0, 1.04, 0.16, 0.94, 0.09);
   for (const sx of [-0.42, 0.42])
@@ -619,14 +631,14 @@ function diningChair(
       );
   for (const sx of [-0.43, 0.43])
     rod(chair, wood, [sx, 0.98, -0.43], [sx, 2.1, -0.55], 0.065);
-  box(chair, fabric, 0, 1.78, -0.51, 1.09, head ? 0.96 : 0.55, 0.17, 0.08);
+  box(chair, fabric, 0, 1.78, -0.51, 1.09, 0.96, 0.17, 0.08);
   return chair;
 }
 function margoAtHead(parent: Group) {
   const m = new T.Group();
   parent.add(m);
-  m.position.set(-5.53, 1.02, 0);
-  m.rotation.y = 1.08;
+  m.position.set(0, 1.02, -2.7);
+  m.rotation.y = 0.09;
   // The ochre blazer, silver bob, and angular glasses echo Margo’s guest-check portrait.
   oval(m, "#c68c2f", 0, 0.69, 0, 0.57, 0.69, 0.37, 2);
   for (const x of [-0.25, 0.25]) {
@@ -740,88 +752,67 @@ export function banquetModel(
     box(room, "#eabd81", 0, 1.805, z, 9.94, 0.012, 0.014, 0.004);
   for (const x of [-4.99, 4.99])
     box(room, "#904756", x, 1.41, 0, 0.05, 0.72, 0.86, 0.012);
-  diningChair(room, -5.63, 0, Math.PI / 2, true);
+  diningChair(room, 0, -2.83, 0);
   margoAtHead(room);
-  // The pitch deck has followed the client to lunch, complete with her red pen.
-  box(room, "#694333", -4.42, 1.82, 0, 0.73, 0.09, 0.89, 0.04);
-  box(room, "#fff4d8", -4.42, 1.879, 0, 0.66, 0.027, 0.79, 0.015);
+  // The judge's clipboard and tasting fork are the only place setting.
+  const station = new T.Group();
+  station.position.set(0, top + 0.05, -1.64);
+  room.add(station);
+  box(station, "#694333", 0.15, 0.05, 0, 0.91, 0.07, 0.69);
+  box(station, "#fff4d8", 0.15, 0.097, 0, 0.84, 0.024, 0.61, 0.012);
   for (let i = 0; i < 3; i++)
     box(
-      room,
-      "#a69480",
-      -4.43,
-      1.898,
-      -0.22 + i * 0.13,
-      0.4 - i * 0.06,
-      0.008,
-      0.018,
+      station,
+      "#b1a28b",
+      0.12,
+      0.113,
+      -0.15 + i * 0.11,
+      0.47 - i * 0.08,
+      0.006,
+      0.016,
       0.002,
     );
-  rod(room, "#9c3032", [-4.65, 1.925, 0.25], [-4.22, 1.925, -0.04], 0.026);
-  for (const x of [-2.3, 0.1, 2.4]) centerpiece(room, x);
+  rod(station, "#a1373a", [-0.08, 0.14, 0.24], [0.46, 0.14, 0.01], 0.026);
+  box(station, "#71806a", -0.69, 0.045, 0, 0.34, 0.035, 0.68);
+  box(station, "#dcd3c4", -0.69, 0.078, -0.04, 0.055, 0.029, 0.42);
+  box(station, "#dcd3c4", -0.69, 0.078, 0.14, 0.136, 0.029, 0.073);
+  for (const off of [-0.053, 0, 0.053])
+    box(
+      station,
+      "#e7ddc8",
+      -0.69 + off,
+      0.078,
+      0.22,
+      0.023,
+      0.028,
+      0.16,
+      0.007,
+    );
+  centerpiece(room, -4.56);
   const anchors: T.Vector3[] = [];
-  for (let i = 0; i < 8; i++) {
-    const x = -3.5 + Math.floor(i / 2) * 2.34,
-      z = (i % 2 === 0 ? 1 : -1) * 1.2,
-      sign = Math.sign(z);
-    diningChair(room, x, z + sign * 1.5, sign > 0 ? Math.PI : 0);
-    const setting = settings[i];
-    const plate = dish(setting?.plate ?? [], setting?.drink, false);
-    plate.scale.setScalar(0.3);
-    plate.position.set(x, top + 0.05, z);
-    plate.rotation.y = sign > 0 ? 0 : Math.PI;
+  for (const [i, setting] of settings.entries()) {
+    const columns = Math.ceil(settings.length / 2);
+    const x = (Math.floor(i / 2) - (columns - 1) / 2) * 2.25;
+    const z = i % 2 === 0 ? 1.05 : -0.62;
+    const plate = dish(setting.plate, setting.drink, false);
+    plate.scale.setScalar(0.32);
+    plate.position.set(x, top + 0.075, z);
     plate.userData.seat = i;
     room.add(plate);
-    const napkin = box(
-      room,
-      "#71806a",
-      x - 0.91,
-      top + 0.065,
-      z,
-      0.28,
-      0.035,
-      0.61,
-      0.025,
-    );
-    napkin.rotation.y = 0.06 * sign;
-    box(room, "#c7b8a1", x + 0.89, top + 0.08, z, 0.055, 0.037, 0.69, 0.018);
-    box(
-      room,
-      "#e1d2be",
-      x - 0.9,
-      top + 0.093,
-      z + 0.07 * sign,
-      0.044,
-      0.028,
-      0.52,
-      0.009,
-    );
-    for (const off of [-0.046, 0, 0.046])
-      box(
-        room,
-        "#e6dbc7",
-        x - 0.9 + off,
-        top + 0.094,
-        z - 0.24 * sign,
-        0.022,
-        0.026,
-        0.18,
-        0.006,
-      );
     const card = box(
       room,
       "#ffefc9",
       x,
       top + 0.17,
-      z + sign * 0.73,
+      z + 0.75,
       0.72,
       0.27,
       0.055,
       0.012,
     );
-    card.rotation.x = -sign * 0.2;
+    card.rotation.x = -0.2;
     card.userData.seat = i;
-    anchors.push(new T.Vector3(x, top + 0.35, z + sign * 0.68));
+    anchors.push(new T.Vector3(x, top + 0.35, z + 0.74));
   }
   return { room, anchors };
 }

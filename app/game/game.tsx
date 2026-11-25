@@ -421,10 +421,10 @@ export default function Game({ user }: { user: string | null }) {
               </h1>
               <p>
                 {!chefName || tab === "kitchen"
-                  ? "Margo just approved the Thanksgiving campaign. Seventeen decks. One headline. Now she’s first in line at the office potluck, holding out her plate. You get one revision."
+                  ? "Margo just approved the Thanksgiving campaign. Seventeen decks. One headline. Someone called the office potluck a tasting. Now she’s at the judges’ table with a fork and a red pen. Make her a plate. You get one revision."
                   : inspect
                     ? "The food has been through client review."
-                    : "Pick a chef’s name card to see what they served and what Margo had to say."}
+                    : "Margo is tasting the whole lineup. Pick a chef’s plate for her verdict."}
               </p>
             </div>
           </div>
@@ -450,7 +450,7 @@ export default function Game({ user }: { user: string | null }) {
             <Scene plate={empty} roast />
             <form className="order-controls" onSubmit={join}>
               <h2>Whose plate is it?</h2>
-              <label htmlFor="chef-name">Name on your place card</label>
+              <label htmlFor="chef-name">Name on your dish</label>
               <input
                 id="chef-name"
                 autoComplete="nickname"

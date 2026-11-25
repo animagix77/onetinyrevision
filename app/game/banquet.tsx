@@ -139,7 +139,7 @@ export default function Banquet({
       lastX = 0,
       startX = 0,
       startY = 0;
-    const target = new T.Vector3(-0.24, 1.2, 0),
+    const target = new T.Vector3(0, 1.42, -0.32),
       ray = new T.Raycaster(),
       projected = new T.Vector3();
     function draw() {
@@ -156,8 +156,8 @@ export default function Banquet({
       camera.updateMatrixWorld();
       // Fit all occupied seats and the client's chair while turning on small screens.
       let halfH = 0;
-      for (const x of [-6.5, 5.4])
-        for (const z of [-3.25, 3.25])
+      for (const x of [-5.2, 5.2])
+        for (const z of [-3.42, 2.3])
           for (const y of [0, 3.5]) {
             const p = projected
               .set(x, y, z)
@@ -246,7 +246,7 @@ export default function Banquet({
     <section className="banquet-room" aria-label="Margo’s 3D banquet table">
       <div className="banquet-caption">
         <strong>Margo Vale</strong>
-        <q>I brought a fork and some actionable feedback.</q>
+        <q>I’ll be judging this blind. Leave your names on.</q>
       </div>
       <div className={"banquet-stage" + (fallback ? " no-3d" : "")} ref={host}>
         {fallback && (

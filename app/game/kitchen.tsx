@@ -83,9 +83,9 @@ export default function Kitchen({
       y: number;
     } | null>(null),
     [undo, setUndo] = useState<{ before: Plate; after: Plate } | null>(null);
-  const pickPoint = useRef<((x: number, y: number) => Spot | null) | null>(
-    null,
-  );
+  const pickPoint = useRef<
+    ((x: number, y: number, surface?: boolean) => Spot | null) | null
+  >(null);
   const gesture = useRef<{
       id: number;
       x: number;
@@ -331,7 +331,11 @@ export default function Kitchen({
                       setGhost(null);
                       if (!g || !g.dragged) return;
                       suppress.current = true;
-                      const at = pickPoint.current?.(e.clientX, e.clientY);
+                      const at = pickPoint.current?.(
+                        e.clientX,
+                        e.clientY,
+                        staysPut(k),
+                      );
                       if (at) add(k, at);
                       else setMessage("Drop the food inside the plate.");
                     }}

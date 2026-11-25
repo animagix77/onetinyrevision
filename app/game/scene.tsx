@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import * as T from "three";
 import { SVGRenderer } from "three/examples/jsm/renderers/SVGRenderer.js";
 import { RotateCcw, ZoomIn, ZoomOut, Move3d, MapPin } from "lucide-react";
-import { board, dish, disposeScene } from "./models";
+import { board, dish, disposeScene, settleToppings } from "./models";
+import { animatePours } from "./pour-animation";
 import { staysPut, names, type Drink, type Plate } from "./rules";
 type Props = {
   plate: Plate;
@@ -11,7 +12,12 @@ type Props = {
   drink?: Drink | null;
   onMove?: (index: number, x: number, z: number) => void;
   dropTarget?: React.RefObject<
-    ((x: number, y: number) => { x: number; z: number } | null) | null
+    | ((
+        x: number,
+        y: number,
+        surface?: boolean,
+      ) => { x: number; z: number } | null)
+    | null
   >;
   onPlace?: (x: number, z: number, seconds: number) => void;
   pin?: { x: number; z: number } | null;
@@ -165,7 +171,11 @@ export default function Scene({
         marker.current.style.top = (1 - v.y) * 50 + "%";
       }
     }
+    let lastPlate: Plate | undefined;
+    let stopPour: (() => void) | undefined;
     function replace() {
+      stopPour?.();
+      stopPour = undefined;
       clearPick();
       if (group) {
         scene.remove(group);
@@ -175,6 +185,30 @@ export default function Scene({
         ? board(current.current.plate)
         : dish(current.current.plate, current.current.drink);
       scene.add(group);
+      const next = current.current.plate;
+      if (
+        dropTarget &&
+        lastPlate &&
+        next.length > lastPlate.length &&
+        lastPlate.every(
+          (f, i) =>
+            f.kind === next[i].kind &&
+            f.x === next[i].x &&
+            f.z === next[i].z &&
+            f.inBoat === next[i].inBoat,
+        ) &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        const from = lastPlate.length;
+        const pools = group.children.filter(
+          (child): child is T.Mesh =>
+            child instanceof T.Mesh &&
+            child.userData.gravy &&
+            child.userData.portionIndex >= from,
+        );
+        if (pools.length) stopPour = animatePours(pools, scene, draw);
+      }
+      lastPlate = next;
       draw();
     }
     const turn = (n: number) => {
@@ -216,6 +250,7 @@ export default function Scene({
         return;
       model.position.x = original.x;
       model.position.z = original.z;
+      settleToppings(group, current.current.plate);
       const k = Math.min(1, 2.29 / Math.hypot(x, z));
       clearPick();
       draw();
@@ -250,6 +285,9 @@ export default function Scene({
               k = Math.min(1, 2.29 / Math.hypot(x, z));
             grabbed.position.x = x * k;
             grabbed.position.z = z * k;
+            stopPour?.();
+            stopPour = undefined;
+            settleToppings(group, current.current.plate);
             draw();
           }
         } else setHint("This portion stays put.");
@@ -287,7 +325,7 @@ export default function Scene({
           (performance.now() - startTime) / 1000,
         );
     };
-    function platePoint(clientX: number, clientY: number) {
+    function platePoint(clientX: number, clientY: number, surface = false) {
       const r = host.getBoundingClientRect();
       if (
         clientX < r.left ||
@@ -303,11 +341,19 @@ export default function Scene({
         ),
         camera,
       );
-      if (
-        !ray.ray.intersectPlane(plane, point) ||
-        Math.hypot(point.x, point.z) > 2.34
-      )
-        return null;
+      const hit =
+        surface &&
+        ray.intersectObjects(
+          group.children.filter(
+            (c) =>
+              c.userData.portionIndex !== undefined &&
+              !current.current.plate[c.userData.portionIndex]?.inBoat,
+          ),
+          true,
+        )[0];
+      if (hit) point.copy(hit.point);
+      else if (!ray.ray.intersectPlane(plane, point)) return null;
+      if (Math.hypot(point.x, point.z) > 2.34) return null;
       const k = Math.min(1, 2.29 / Math.hypot(point.x, point.z));
       return { x: point.x * k, z: point.z * k };
     }
@@ -323,6 +369,7 @@ export default function Scene({
     const observer = new ResizeObserver(draw);
     observer.observe(host);
     return () => {
+      stopPour?.();
       if (dropTarget) dropTarget.current = null;
       observer.disconnect();
       host.removeEventListener("pointerdown", down);
