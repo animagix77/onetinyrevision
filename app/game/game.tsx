@@ -441,9 +441,6 @@ export default function Game({ apiOrigin = "" }: { apiOrigin?: string }) {
                       Margo’s verdict · {shownServing.verdict.score}/3
                     </strong>
                     <blockquote>“{shownServing.verdict.note}”</blockquote>
-                    {shownServing.verdict.clientNote && (
-                      <p>{shownServing.verdict.clientNote}</p>
-                    )}
                   </div>
                 </div>
               )}

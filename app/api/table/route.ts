@@ -1,5 +1,4 @@
 import { apiHeaders, preflight, tablePlayer } from "../pages-auth";
-import { clientFeedback } from "../../game/client-notes";
 import { pagesOrigin } from "../../game/pages-host";
 import { getRoundDb } from "../../../db/active-round";
 import { gameRound } from "../../game/round";
@@ -150,14 +149,10 @@ export async function POST(req: Request) {
   if (b.action === "serve") {
     if (!b.plate.length)
       return json({ error: "Add something to the plate first." }, 400);
-    const verdict = review(b.plate, servings.at(-1)?.verdict.note);
     servings.push({
       plate: b.plate,
       drink,
-      verdict: {
-        ...verdict,
-        ...clientFeedback(b.plate, drink, servings, verdict.score),
-      },
+      verdict: review(b.plate, servings),
       at: now,
     });
   }

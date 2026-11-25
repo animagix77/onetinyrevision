@@ -189,7 +189,6 @@ export default function Kitchen({
             <>
               <blockquote id="client-verdict">“{verdict?.note}”</blockquote>
               <p>{verdict?.score}/3 requests met</p>
-              {verdict?.clientNote && <p>{verdict.clientNote}</p>}
               {servings.length > 0 && (
                 <button className="secondary" onClick={revise}>
                   <RotateCcw size={16} />
@@ -203,11 +202,7 @@ export default function Kitchen({
             </>
           ) : (
             <>
-              {revising && (
-                <p className="revision-quote">
-                  “{verdict?.clientNote ?? verdict?.note}”
-                </p>
-              )}
+              {revising && <p className="revision-quote">“{verdict?.note}”</p>}
               <p className="kitchen-tip">
                 Drag food onto the plate, then drag it to rearrange.{" "}
                 {placementRule}

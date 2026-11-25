@@ -308,7 +308,6 @@ export default function Banquet({
           <div>
             <strong>Margo’s verdict on your plate · {verdict.score}/3</strong>
             <blockquote>“{verdict.note}”</blockquote>
-            {verdict.clientNote && <p>{verdict.clientNote}</p>}
             <button className="secondary" onClick={revise}>
               Revise my plate
             </button>

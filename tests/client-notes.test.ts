@@ -1,28 +1,46 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { clientFeedback } from "../app/game/client-notes";
 import { review, type Plate, type Serving } from "../app/game/rules";
+import { margoLines } from "../app/game/margo-lines";
 
-test("Margo remembers her request, withholds sign-off, and saves the earlier notes", () => {
-  const plate: Plate = [{ kind: "thin", x: 0, z: 0, size: 1 }];
-  const served: Serving[] = [];
-  function taste(p: Plate, score: number) {
-    const feedback = clientFeedback(p, null, served, score);
-    served.push({
-      plate: p,
-      verdict: { ...review(p), ...feedback },
-      at: served.length,
-    });
-    return feedback;
-  }
-  assert.match(taste(plate, 1).clientNote, /logo bigger/);
-  assert.match(
-    clientFeedback(plate, null, served, 1).clientNote,
-    /look for the turkey/,
-  );
-  assert.match(taste([{ ...plate[0], z: 1 }], 1).clientNote, /ad for turkey/);
-  assert.equal(taste(plate, 3).approved, false);
-  assert.equal(clientFeedback(plate, null, served, 2).approved, false);
-  assert.equal(taste(plate, 3).approved, true);
-  assert.match(served[0].verdict.clientNote!, /logo bigger/);
+const turkey: Plate = [
+  { kind: "thin", x: -1, z: 0, size: 1 },
+  { kind: "thin", x: 1, z: 0, size: 1 },
+];
+const meal: Plate = [
+  ...turkey,
+  { kind: "beans", x: 0, z: 1, size: 1 },
+  { kind: "mash", x: 0, z: -1, size: 1 },
+  { kind: "gravy", x: 0, z: 0, size: 1, inBoat: true },
+];
+const serving = (plate: Plate, history: Serving[] = []): Serving => ({
+  plate,
+  at: history.length,
+  verdict: review(plate, history),
+});
+
+test("each round saves one food-specific quote and remembers corrections", () => {
+  const first = serving(turkey.slice(0, 1));
+  assert.ok(margoLines.oneSlice.includes(first.verdict.note));
+  const second = serving(turkey, [first]);
+  assert.ok(margoLines.turkeyFixed.includes(second.verdict.note));
+  const third = serving(meal.slice(0, -1), [first, second]);
+  assert.ok(margoLines.sidesFixed.includes(third.verdict.note));
+  const fourth = serving(meal, [first, second, third]);
+  assert.equal(fourth.verdict.approved, true);
+  assert.ok(margoLines.approved.includes(fourth.verdict.note));
+  for (const { verdict } of [first, second, third, fourth])
+    assert.ok(!("clientNote" in verdict));
+});
+
+test("perfect early plates get distinct Thanksgiving feedback before sign-off", () => {
+  const first = serving(meal);
+  const second = serving(meal, [first]);
+  const moved = meal.map((f) => (f.kind === "thin" ? { ...f, z: 1 } : f));
+  const third = serving(moved, [first, second]);
+  assert.ok(margoLines.holding.includes(first.verdict.note));
+  assert.notEqual(second.verdict.note, first.verdict.note);
+  assert.ok(margoLines.movedTurkey.includes(third.verdict.note));
+  assert.equal(third.verdict.approved, false);
+  assert.equal(review(meal, [first, second, third]).approved, true);
 });

@@ -137,21 +137,57 @@ export function assess(p: Plate) {
   } else if (sauce.length > 1) pool = "ampleSauce";
   return { checks, pool, pin: target ? { x: target.x, z: target.z } : null };
 }
-export function review(p: Plate, previousNote?: string) {
+export function review(p: Plate, history: Serving[] = []): Verdict {
   const { pool, checks, pin } = assess(p);
-  const lines = margoLines[
-    previousNote && pool === "approved" ? "comeback" : pool
-  ].filter((line) => line !== previousNote);
+  const score = checks.filter(Boolean).length;
+  const approved = history.length >= 3 && score === 3;
+  const previous = history.at(-1);
+  let voice: keyof typeof margoLines = pool;
+  if (score === 3 && !approved) {
+    const turkey = p.filter((f) => meat(f.kind));
+    const moved =
+      previous?.verdict.score === 3 &&
+      turkey.some(
+        (slice, i) =>
+          slice.z >
+          (previous.plate.filter((f) => meat(f.kind))[i]?.z ?? slice.z) + 0.15,
+      );
+    voice = moved ? "movedTurkey" : "holding";
+  } else if (
+    previous &&
+    checks[0] &&
+    !checks[1] &&
+    !previous.verdict.checks[0]
+  ) {
+    voice = "turkeyFixed";
+  } else if (
+    previous &&
+    checks[0] &&
+    checks[1] &&
+    !checks[2] &&
+    !previous.verdict.checks[1]
+  ) {
+    voice = "sidesFixed";
+  }
+  const lines = margoLines[voice];
+  const used = new Set(history.map((s) => s.verdict.note));
+  const fresh = lines.filter((line) => !used.has(line));
+  const choices = fresh.length
+    ? fresh
+    : lines.filter((line) => line !== previous?.verdict.note);
   return {
     checks,
-    score: checks.filter(Boolean).length,
+    score,
     pin,
-    note: lines[Math.floor(Math.random() * lines.length)],
+    approved,
+    note: choices[Math.floor(Math.random() * choices.length)],
   };
 }
-export type Verdict = ReturnType<typeof review> & {
-  clientRequest?: number;
-  clientNote?: string;
+export type Verdict = {
+  checks: boolean[];
+  score: number;
+  pin: { x: number; z: number } | null;
+  note: string;
   approved?: boolean;
 };
 export type Serving = {
