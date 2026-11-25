@@ -55,7 +55,7 @@ export default function Music() {
   const label = enabled ? "Mute kitchen jingle" : "Play kitchen jingle";
   return (
     <>
-      <audio ref={audio} src="./audio/tasting-notes.mp3" loop preload="auto" />
+      <audio ref={audio} src="./audio/potluck.mp3" loop preload="auto" />
       <button
         ref={button}
         type="button"
