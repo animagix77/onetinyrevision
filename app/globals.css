@@ -999,3 +999,261 @@ html {
     scroll-behavior: auto;
   }
 }
+.heading p {
+  max-width: 72ch;
+}
+.quick-game {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+.order-strip {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: #fff9e9;
+  border: 1px solid #bfa58f;
+  border-left: 5px solid #a85541;
+  border-radius: 9px;
+  padding: 12px 18px;
+  margin: 0 0 15px;
+}
+.order-strip img {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.order-strip strong {
+  font-size: 0.92rem;
+}
+.order-strip small {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.order-strip p {
+  font:
+    italic clamp(17px, 1.5vw, 22px)/1.3 Georgia,
+    serif;
+  margin: 4px 0 0;
+}
+.service-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(290px, 1fr);
+  overflow: hidden;
+  border: 1px solid #977c72;
+  border-radius: 13px;
+  background: var(--paper);
+  box-shadow: 0 3px 0 #65404b18;
+}
+.service-board .scene {
+  height: auto;
+  min-height: 335px;
+}
+.order-controls {
+  padding: clamp(19px, 2.5vw, 38px);
+  border-left: 1px solid #ae897c;
+  align-self: center;
+}
+.order-controls h2 {
+  font:
+    800 clamp(27px, 2.5vw, 40px)/1.1 Bricolage,
+    sans-serif;
+  letter-spacing: -0.055em;
+  margin: 19px 0 15px;
+}
+.course-track,
+.course-track span,
+.score-label,
+.choices button,
+.secondary,
+.undo {
+  display: flex;
+  align-items: center;
+}
+.course-track {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.course-track span {
+  gap: 5px;
+  font-size: 0.8rem;
+  color: #75635d;
+}
+.course-track b,
+.course-track svg {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #c6b5a7;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  font: 700 0.68rem DM;
+}
+.course-track .current {
+  color: var(--wine);
+  font-weight: bold;
+}
+.course-track .current b {
+  background: var(--wine);
+  color: white;
+  border-color: var(--wine);
+}
+.course-track .done svg {
+  background: #dde6d0;
+  color: #40582f;
+  border-color: #b1be9e;
+}
+.choices {
+  display: grid;
+  gap: 8px;
+}
+.choices button,
+.secondary {
+  min-height: 43px;
+  padding: 10px 14px;
+  border: 1px solid #b9957d;
+  border-radius: 7px;
+  background: #fff5e4;
+  gap: 10px;
+  font-weight: bold;
+  text-align: left;
+}
+.choices svg {
+  width: 17px;
+  height: 17px;
+  color: #934b39;
+}
+.choices button:hover:not(:disabled),
+.secondary:hover {
+  background: #ffddb8;
+  border-color: #864a36;
+}
+.order-controls .primary,
+.order-controls .secondary {
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+}
+.undo,
+.context-line,
+.save-state,
+.plate-description {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.undo {
+  margin-top: 12px;
+  gap: 5px;
+  padding: 4px 0;
+}
+.context-line {
+  margin: 10px 0 0;
+}
+.save-state:empty {
+  display: none;
+}
+.score-label {
+  gap: 7px;
+  color: #69422c;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.order-controls blockquote {
+  margin: 0 0 12px;
+  font:
+    italic 21px/1.45 Georgia,
+    serif;
+}
+.edit-order {
+  margin-top: 14px;
+}
+.edit-order summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.minor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 10px 0;
+}
+.minor-actions button {
+  padding: 6px;
+  background: #f4e6d6;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+.edit-order label {
+  display: block;
+  margin: 12px 0 5px;
+}
+.edit-order select {
+  width: 100%;
+}
+@media (max-width: 720px) {
+  .heading {
+    padding: 16px 0 12px;
+  }
+  .heading h1 {
+    font-size: clamp(29px, 6vw, 39px);
+    margin: 5px 0;
+  }
+  .heading p {
+    line-height: 1.35;
+  }
+  .edition {
+    display: none;
+  }
+  .order-strip {
+    padding: 8px 10px;
+    gap: 9px;
+    margin-bottom: 10px;
+  }
+  .order-strip img {
+    width: 42px;
+    height: 48px;
+    border-radius: 5px;
+  }
+  .order-strip p {
+    font-size: 16px;
+  }
+  .service-board {
+    grid-template-columns: 1fr;
+  }
+  .service-board .scene {
+    min-height: 0;
+    height: clamp(145px, 24vh, 215px);
+  }
+  .order-controls {
+    padding: 13px 15px;
+    border-left: 0;
+    border-top: 1px solid #ae897c;
+  }
+  .order-controls h2 {
+    font-size: 25px;
+    margin: 8px 0;
+  }
+  .choices {
+    gap: 6px;
+  }
+  .choices button {
+    min-height: 43px;
+    padding: 8px 12px;
+  }
+  .undo {
+    margin-top: 5px;
+  }
+  .quick-game .view-tag {
+    display: none;
+  }
+  .quick-game .drag {
+    font-size: 0.72rem;
+  }
+  .order-controls .secondary,
+  .order-controls .primary {
+    min-height: 44px;
+  }
+}
