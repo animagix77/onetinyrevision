@@ -34,7 +34,6 @@ type Props = {
   change: (p: Plate, serve?: boolean, drink?: Drink | null) => Promise<boolean>;
   revise: () => void;
   table: () => void;
-  user: string | null;
 };
 const defaultQty = {
   thin: 2,
@@ -94,7 +93,7 @@ export default function Kitchen({
     } | null>(null),
     suppress = useRef(false);
   const verdict = servings.at(-1)?.verdict,
-    closed = servings.length === 2 || Boolean(servings.length && !revising),
+    closed = Boolean(servings.length && !revising),
     disabled = busy || !ready || closed;
   async function save(next: Plate, notice: string) {
     if (await change(next)) {
@@ -181,19 +180,20 @@ export default function Kitchen({
         <div className="order-controls">
           <h2>
             {closed
-              ? "Margo’s verdict"
+              ? "Margo’s verdict · Round " + servings.length
               : revising
-                ? "One tiny revision."
+                ? "Revision " + servings.length
                 : "Make your plate."}
           </h2>
           {closed ? (
             <>
               <blockquote id="client-verdict">“{verdict?.note}”</blockquote>
               <p>{verdict?.score}/3 requests met</p>
-              {servings.length === 1 && (
+              {verdict?.clientNote && <p>{verdict.clientNote}</p>}
+              {servings.length > 0 && (
                 <button className="secondary" onClick={revise}>
                   <RotateCcw size={16} />
-                  Use my revision
+                  Revise my plate
                 </button>
               )}
               <button className="primary" onClick={table}>
@@ -203,7 +203,11 @@ export default function Kitchen({
             </>
           ) : (
             <>
-              {revising && <p className="revision-quote">“{verdict?.note}”</p>}
+              {revising && (
+                <p className="revision-quote">
+                  “{verdict?.clientNote ?? verdict?.note}”
+                </p>
+              )}
               <p className="kitchen-tip">
                 Drag food onto the plate, then drag it to rearrange.{" "}
                 {placementRule}

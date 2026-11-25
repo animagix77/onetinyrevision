@@ -1409,7 +1409,7 @@ html {
   width: 86px;
   z-index: 999;
   pointer-events: none;
-  filter: drop-shadow(2px 6px 4px #48283966);
+  filter: drop-shadow(0 1px 1.5px #48283955);
 }
 .portion-edit {
   font-size: 0.84rem;

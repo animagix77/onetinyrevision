@@ -6,7 +6,6 @@ import {
   UsersRound,
   Check,
   ScrollText,
-  LogIn,
   Flame,
   Send,
 } from "lucide-react";
@@ -20,8 +19,6 @@ import {
   drinkNames,
   portionList,
   type Drink,
-  review,
-  plateSchema,
   keepsCommittedPortions,
   placementRule,
   type Entry,
@@ -30,7 +27,7 @@ import {
   type Serving,
 } from "./rules";
 import { gameRound } from "./round";
-const key = "judge-dean-one-tiny-revision-practice-" + gameRound;
+import { guestKey } from "./guest";
 const empty: Plate = [];
 type Draft = {
   drink?: Drink | null;
@@ -39,24 +36,6 @@ type Draft = {
   version: number;
 };
 const fresh: Draft = { plate: empty, servings: [], version: 0 };
-function loadPractice(): Draft {
-  try {
-    const x = JSON.parse(sessionStorage.getItem(key) || "null");
-    if (
-      x &&
-      plateSchema.safeParse(x.plate).success &&
-      Array.isArray(x.servings) &&
-      x.servings.length <= 2 &&
-      x.servings.every(
-        (s: Serving) =>
-          plateSchema.safeParse(s.plate).success &&
-          s.verdict?.checks?.length === 3,
-      )
-    )
-      return x;
-  } catch {}
-  return fresh;
-}
 function ClientCard({
   plate,
   checks = assess(plate).checks,
@@ -75,7 +54,7 @@ function ClientCard({
           <div>
             <span className="eyebrow">TODAY’S CLIENT</span>
             <h3>Margo Vale</h3>
-            <small>Executive Creative Director</small>
+            <small>Client, Brand Marketing</small>
           </div>
         </div>
         <div className="quote">
@@ -98,31 +77,27 @@ function ClientCard({
     </aside>
   );
 }
-export default function Game({
-  user,
-  request = fetch,
-  signIn,
-}: {
-  user: string | null;
-  request?: typeof fetch;
-  signIn?: () => void;
-}) {
+export default function Game({ apiOrigin = "" }: { apiOrigin?: string }) {
   async function dataUrl<R = unknown>(path: string, options?: RequestInit) {
     const headers = new Headers(options?.headers);
     if (options?.method === "POST") headers.set("x-game-round", gameRound);
-    return request(path, { cache: "no-store", ...options, headers }).then(
-      async (r) => {
-        const j = await r.json();
-        if (!r.ok)
-          throw Object.assign(
-            Error(
-              (j as { error?: string }).error || "Could not reach the table.",
-            ),
-            { status: r.status },
-          );
-        return j as R;
-      },
-    );
+    headers.set("Authorization", "Guest " + (await guestKey()));
+    return fetch(apiOrigin + path, {
+      cache: "no-store",
+      ...options,
+      credentials: "omit",
+      headers,
+    }).then(async (r) => {
+      const j = await r.json();
+      if (!r.ok)
+        throw Object.assign(
+          Error(
+            (j as { error?: string }).error || "Could not reach the table.",
+          ),
+          { status: r.status },
+        );
+      return j as R;
+    });
   }
 
   const [tab, setTab] = useState<"kitchen" | "table">("kitchen"),
@@ -145,19 +120,8 @@ export default function Game({
     latest = useRef(0);
   const plate = draft.plate,
     served = draft.servings.length,
-    locked = served === 2 || (served === 1 && !revising);
-  const practiceEntry: Entry = {
-    id: "practice",
-    chef: chefName,
-    draft: plate,
-    drink: draft.drink,
-    servings: draft.servings,
-    version: draft.version,
-    updated: 0,
-    mine: true,
-  };
-  const tableEntries = user ? entries : plate.length ? [practiceEntry] : [];
-  const inspect = tableEntries.find((x) => x.id === selected),
+    locked = served > 0 && !revising;
+  const inspect = entries.find((x) => x.id === selected),
     snapshot = inspect && history >= 0 ? inspect.servings[history] : undefined;
   const latestServing = inspect?.servings.at(-1);
   const shownServing =
@@ -174,16 +138,11 @@ export default function Game({
   async function refresh(hydrate = false) {
     const stamp = ++generation.current;
     const data = await dataUrl<{
-      signedIn: boolean;
       name?: string;
       entries: Entry[];
       notes: Note[];
     }>("/api/table");
     if (stamp !== generation.current) return;
-    if (user && !data.signedIn)
-      throw Error(
-        "Your session has expired. Sign in again to load your plate.",
-      );
     setChefName(data.name || "");
     setEntries(data.entries);
     setNotes(data.notes);
@@ -192,11 +151,7 @@ export default function Game({
       initialLoad.current = false;
       if (me?.servings.length) setTab("table");
     }
-    if (
-      user &&
-      me &&
-      (hydrate || (!lock.current && me.version > latest.current))
-    ) {
+    if (me && (hydrate || (!lock.current && me.version > latest.current))) {
       latest.current = me.version;
       setDraft({
         drink: me.drink,
@@ -208,18 +163,6 @@ export default function Game({
     setReady(true);
   }
   useEffect(() => {
-    if (!user) {
-      sessionStorage.removeItem("judge-dean-one-tiny-revision-practice-v1");
-      sessionStorage.removeItem(
-        "judge-dean-one-tiny-revision-practice-v1-chef",
-      );
-      const practice = loadPractice();
-      setDraft(practice);
-      setChefName(sessionStorage.getItem(key + "-chef") || "");
-      if (practice.servings.length) setTab("table");
-      setReady(true);
-      return;
-    }
     let active = true;
     const read = () => {
       if (active)
@@ -237,7 +180,7 @@ export default function Game({
       clearInterval(t);
       generation.current++;
     };
-  }, [user]);
+  }, [apiOrigin]);
   async function join(e: React.FormEvent) {
     e.preventDefault();
     const name = nameInput.trim();
@@ -247,13 +190,12 @@ export default function Game({
     setError("");
     generation.current++;
     try {
-      if (user)
-        await dataUrl("/api/table", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "join", name }),
-        });
-      else sessionStorage.setItem(key + "-chef", name);
+      await dataUrl("/api/table", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "join", name }),
+      });
+
       generation.current++;
       setChefName(name);
       setEntries((rows) =>
@@ -281,58 +223,37 @@ export default function Game({
     setError("");
     generation.current++;
     try {
-      let result: Draft;
-      if (user) {
-        const r = await dataUrl<{
-          id: string;
-          servings: Serving[];
-          version: number;
-        }>("/api/table", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: serve ? "serve" : "save",
-            drink,
-            plate: next,
-            version: draft.version,
-          }),
-        });
-        result = {
+      const r = await dataUrl<{
+        id: string;
+        servings: Serving[];
+        version: number;
+      }>("/api/table", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: serve ? "serve" : "save",
           drink,
           plate: next,
-          servings: r.servings,
-          version: r.version,
-        };
-        const own: Entry = {
-          id: r.id,
-          mine: true,
-          chef: chefName,
-          draft: next,
-          drink,
-          servings: r.servings,
-          version: r.version,
-          updated: Date.now(),
-        };
-        setEntries((rows) => [own, ...rows.filter((e) => !e.mine)]);
-      } else {
-        result = {
-          drink,
-          plate: next,
-          servings: serve
-            ? [
-                ...draft.servings,
-                {
-                  drink,
-                  plate: next,
-                  verdict: review(next, draft.servings.at(-1)?.verdict.note),
-                  at: Date.now(),
-                },
-              ]
-            : draft.servings,
-          version: draft.version + 1,
-        };
-        sessionStorage.setItem(key, JSON.stringify(result));
-      }
+          version: draft.version,
+        }),
+      });
+      const result: Draft = {
+        drink,
+        plate: next,
+        servings: r.servings,
+        version: r.version,
+      };
+      const own: Entry = {
+        id: r.id,
+        mine: true,
+        chef: chefName,
+        draft: next,
+        drink,
+        servings: r.servings,
+        version: r.version,
+        updated: Date.now(),
+      };
+      setEntries((rows) => [own, ...rows.filter((e) => !e.mine)]);
       latest.current = result.version;
       setDraft(result);
       if (serve) {
@@ -341,7 +262,7 @@ export default function Game({
         setSelected("");
         setTab("table");
       }
-      if (user) void refresh().catch(() => {});
+      void refresh().catch(() => {});
       return true;
     } catch (e) {
       setError((e as Error).message);
@@ -378,20 +299,6 @@ export default function Game({
       setWorking(false);
     }
   }
-  const sign = signIn ? (
-    <button className="signin" onClick={signIn}>
-      <LogIn size={16} /> Sign in
-    </button>
-  ) : (
-    <a
-      className="signin"
-      href="/signin-with-chatgpt?return_to=%2F"
-      target="_top"
-    >
-      <LogIn size={16} />
-      Sign in
-    </a>
-  );
   return (
     <>
       <header>
@@ -419,16 +326,14 @@ export default function Game({
             ))}
           </nav>
           <Music />
-          <div className="account">
-            {user ? (
+          {chefName && (
+            <div className="account">
               <span>
                 <ChefHat size={16} />
-                {chefName || user}
+                {chefName}
               </span>
-            ) : (
-              sign
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </header>
       <main>
@@ -439,7 +344,7 @@ export default function Game({
                 <span className="star">✳</span> THANKSGIVING SERVICE
               </div>
               <h1>
-                {!chefName || tab === "kitchen"
+                {tab === "kitchen"
                   ? "The client stayed for dinner"
                   : inspect
                     ? inspect.chef + "’s plate"
@@ -447,8 +352,8 @@ export default function Game({
                 <b>.</b>
               </h1>
               <p>
-                {!chefName || tab === "kitchen"
-                  ? "Margo just approved the Thanksgiving campaign. Seventeen decks. One headline. Someone called the office potluck a tasting. Now she’s at the judges’ table with a fork and a red pen. Make her a plate. You get one revision."
+                {tab === "kitchen"
+                  ? "Margo just approved the Thanksgiving campaign. Seventeen decks. One headline. Someone called the office potluck a tasting. Now she’s at the judges’ table with a fork and a red pen. Make her a plate. She’s promised one tiny revision. She’s promised that before."
                   : inspect
                     ? shownServing
                       ? "The food has been through client review."
@@ -461,29 +366,22 @@ export default function Game({
         {error && (
           <div className="error" role="alert">
             {error}{" "}
-            {user && (
-              <button
-                onClick={() =>
-                  refresh(true)
-                    .then(() => setError(""))
-                    .catch(() => setError("Still unable to reach the table."))
-                }
-              >
-                Retry
-              </button>
-            )}
+            <button
+              onClick={() =>
+                refresh(true)
+                  .then(() => setError(""))
+                  .catch(() => setError("Still unable to reach the table."))
+              }
+            >
+              Retry
+            </button>
           </div>
         )}
-        {!chefName ? (
+        {!chefName && tab === "kitchen" ? (
           <section className="name-start service-board">
             <Scene plate={empty} roast />
             <form className="order-controls" onSubmit={join}>
               <h2>Whose plate is it?</h2>
-              {signIn && !user && (
-                <button className="primary" type="button" onClick={signIn}>
-                  Sign in for the shared banquet
-                </button>
-              )}
               <label htmlFor="chef-name">Name on your dish</label>
               <input
                 id="chef-name"
@@ -498,7 +396,7 @@ export default function Game({
                 className="primary"
                 disabled={!ready || working || !nameInput.trim()}
               >
-                {signIn && !user ? "Practice on this device" : "Start plating"}
+                Start plating
               </button>
             </form>
           </section>
@@ -516,7 +414,6 @@ export default function Game({
               setSelected("");
               setTab("table");
             }}
-            user={chefName || user}
           />
         ) : inspect ? (
           <div className="layout plate-detail">
@@ -531,7 +428,7 @@ export default function Game({
                   <option value={-1}>Current plate</option>
                   {inspect.servings.map((s, i) => (
                     <option value={i} key={s.at}>
-                      {i ? "Revision" : "First serving"}
+                      {i ? "Revision " + i : "First serving"}
                     </option>
                   ))}
                 </select>
@@ -544,6 +441,9 @@ export default function Game({
                       Margo’s verdict · {shownServing.verdict.score}/3
                     </strong>
                     <blockquote>“{shownServing.verdict.note}”</blockquote>
+                    {shownServing.verdict.clientNote && (
+                      <p>{shownServing.verdict.clientNote}</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -568,7 +468,7 @@ export default function Game({
                       drinkNames[(snapshot ? snapshot.drink : inspect.drink)!]
                     : ""}
                 </p>
-                {inspect.mine && inspect.servings.length === 1 && (
+                {inspect.mine && inspect.servings.length > 0 && (
                   <button
                     className="secondary"
                     onClick={() => {
@@ -576,10 +476,10 @@ export default function Game({
                       setTab("kitchen");
                     }}
                   >
-                    Use my revision
+                    Revise my plate
                   </button>
                 )}
-                {user && (
+                {chefName ? (
                   <>
                     <h2>Kitchen notes</h2>
                     <form onSubmit={addNote}>
@@ -599,6 +499,13 @@ export default function Game({
                       </button>
                     </form>
                   </>
+                ) : (
+                  <button
+                    className="secondary"
+                    onClick={() => setTab("kitchen")}
+                  >
+                    Add your name to leave a note
+                  </button>
                 )}
                 {notes
                   .filter((n) => n.plate === inspect.id)
@@ -616,8 +523,12 @@ export default function Game({
           </div>
         ) : (
           <Banquet
-            entries={tableEntries}
+            entries={entries}
             verdict={revealed}
+            revise={() => {
+              setRevising(true);
+              setTab("kitchen");
+            }}
             open={(e) => {
               setRevealed(undefined);
               setSelected(e.id);

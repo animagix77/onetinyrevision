@@ -7,7 +7,7 @@ const edge = 2.5,
   cells = 144,
   stride = cells + 1,
   step = (edge * 2) / cells;
-function china(x: number, z: number) {
+export function china(x: number, z: number) {
   const r = Math.hypot(x, z);
   return (
     0.18 +

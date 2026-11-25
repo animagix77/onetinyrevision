@@ -1,7 +1,7 @@
 import * as T from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { Food, Plate, Drink } from "./rules";
-import { PlateSurface, gravyPour } from "./plate-surface";
+import { PlateSurface, gravyPour, china } from "./plate-surface";
 type Group = T.Object3D;
 const materials = new Map<string, T.MeshStandardMaterial>();
 function mat(c: string) {
@@ -353,7 +353,7 @@ export function board(p: Plate) {
 }
 function food(g: Group, f: Food) {
   const p = new T.Group();
-  p.position.set(f.x, 0.31, f.z);
+
   g.add(p);
   if (f.kind === "thin" || f.kind === "thick") {
     const h = f.kind === "thin" ? 0.12 : 0.24;
@@ -403,12 +403,17 @@ function food(g: Group, f: Food) {
       b.rotation.y = i * 0.13 - 0.35;
     }
   }
+  p.userData.clearance = -new T.Box3().setFromObject(p).min.y;
+  seatFood(p, f.x, f.z);
   return p;
+}
+export function seatFood(model: T.Object3D, x: number, z: number) {
+  model.position.set(x, china(x, z) + model.userData.clearance - 0.006, z);
 }
 function glassware(g: Group, drink: Drink) {
   const glass = new T.Group();
   g.add(glass);
-  glass.position.set(-2.65, 0.14, -0.26);
+  glass.position.set(-2.65, 0.07, -0.26);
   const wine = drink === "pinot",
     mug = drink === "cider" || drink === "ale",
     height = wine ? 0.98 : drink === "bourbon" ? 0.52 : 0.78;
@@ -531,7 +536,7 @@ export function dish(p: Plate, drink?: Drink | null, withCloth = true) {
   if (boatIndex >= 0) {
     const boat = new T.Group();
     g.add(boat);
-    boat.position.set(2.48, 0.14, -1.58);
+    boat.position.set(2.48, withCloth ? -0.009 : 0.07, -1.58);
     boat.userData.portionIndex = boatIndex;
     const wall = [
       [0, 0],
@@ -815,7 +820,7 @@ export function banquetModel(
     const z = i % 2 === 0 ? 1.05 : -0.62;
     const plate = dish(setting.plate, setting.drink, false);
     plate.scale.setScalar(0.32);
-    plate.position.set(x, top + 0.075, z);
+    plate.position.set(x, (z < 0 ? 1.7995 : 1.7725) - 0.07 * plate.scale.y, z);
     plate.userData.seat = i;
     room.add(plate);
     const card = box(

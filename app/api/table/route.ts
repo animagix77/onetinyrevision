@@ -1,4 +1,5 @@
 import { apiHeaders, preflight, tablePlayer } from "../pages-auth";
+import { clientFeedback } from "../../game/client-notes";
 import { pagesOrigin } from "../../game/pages-host";
 import { getRoundDb } from "../../../db/active-round";
 import { gameRound } from "../../game/round";
@@ -25,22 +26,24 @@ export function OPTIONS() {
 export async function GET(req: Request) {
   const db = await getRoundDb();
   const user = await tablePlayer(req);
-  if (!user)
+  if (!user && req.headers.has("authorization"))
     return json(
-      { signedIn: false, entries: [], notes: [] },
-      req.headers.has("authorization") ? 401 : 200,
+      { error: "Could not identify this browser. Reload the game." },
+      401,
     );
   const [rows, comments, profile] = await Promise.all([
     db.select().from(plates).orderBy(desc(plates.updated)),
     db.select().from(notes).orderBy(desc(notes.created)),
-    db.select().from(chefs).where(eq(chefs.owner, user.userId)).get(),
+    user
+      ? db.select().from(chefs).where(eq(chefs.owner, user.userId)).get()
+      : undefined,
   ]);
   return json({
-    signedIn: true,
+    signedIn: !!user,
     name: profile?.name ?? null,
     entries: rows.map(({ owner, draft, servings, ...row }) => ({
       ...row,
-      mine: owner === user.userId,
+      mine: owner === user?.userId,
       draft: JSON.parse(draft),
       servings: JSON.parse(servings),
     })),
@@ -74,7 +77,11 @@ export async function POST(req: Request) {
   if (origin && origin !== new URL(req.url).origin && origin !== pagesOrigin)
     return json({ error: "Use the game to update your plate." }, 403);
   const u = await tablePlayer(req);
-  if (!u) return json({ error: "Sign in to join the table." }, 401);
+  if (!u)
+    return json(
+      { error: "Open the game and enter your name to join the table." },
+      401,
+    );
   if (req.headers.get("x-game-round") !== gameRound)
     return json(
       { error: "A fresh tasting has started. Reload to join it." },
@@ -134,8 +141,6 @@ export async function POST(req: Request) {
       409,
     );
   const servings: Serving[] = row ? JSON.parse(row.servings) : [];
-  if (servings.length >= 2)
-    return json({ error: "This plate has its final verdict." }, 409);
   if (row && !keepsCommittedPortions(JSON.parse(row.draft), b.plate))
     return json({ error: placementRule }, 422);
   const drink =
@@ -145,10 +150,14 @@ export async function POST(req: Request) {
   if (b.action === "serve") {
     if (!b.plate.length)
       return json({ error: "Add something to the plate first." }, 400);
+    const verdict = review(b.plate, servings.at(-1)?.verdict.note);
     servings.push({
       plate: b.plate,
       drink,
-      verdict: review(b.plate, servings.at(-1)?.verdict.note),
+      verdict: {
+        ...verdict,
+        ...clientFeedback(b.plate, drink, servings, verdict.score),
+      },
       at: now,
     });
   }

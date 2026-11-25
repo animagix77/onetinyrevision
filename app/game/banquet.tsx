@@ -58,7 +58,9 @@ export default function Banquet({
   entries,
   open,
   verdict,
+  revise,
 }: {
+  revise: () => void;
   entries: Entry[];
   verdict?: Entry["servings"][number]["verdict"];
   open: (entry: Entry) => void;
@@ -130,7 +132,7 @@ export default function Banquet({
       camera = new T.OrthographicCamera(-8, 8, 5, -5, 0.1, 100);
     scene.add(stage, new T.HemisphereLight(0xfff0d7, 0xd3aba9, 2.1));
     const key = new T.DirectionalLight(0xffeed1, 2.4);
-    key.position.set(-5, 10, 5);
+    key.position.set(-2.6, 11, 3.6);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
     Object.assign(key.shadow.camera, {
@@ -140,8 +142,8 @@ export default function Banquet({
       bottom: -9,
     });
     key.shadow.camera.updateProjectionMatrix();
-    key.shadow.normalBias = 0.014;
-    key.shadow.bias = -0.0003;
+    key.shadow.normalBias = 0.004;
+    key.shadow.bias = -0.00012;
     scene.add(key);
     let angle = 0,
       drag = false,
@@ -306,6 +308,10 @@ export default function Banquet({
           <div>
             <strong>Margo’s verdict on your plate · {verdict.score}/3</strong>
             <blockquote>“{verdict.note}”</blockquote>
+            {verdict.clientNote && <p>{verdict.clientNote}</p>}
+            <button className="secondary" onClick={revise}>
+              Revise my plate
+            </button>
           </div>
         </div>
       ) : (

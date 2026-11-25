@@ -149,7 +149,11 @@ export function review(p: Plate, previousNote?: string) {
     note: lines[Math.floor(Math.random() * lines.length)],
   };
 }
-export type Verdict = ReturnType<typeof review>;
+export type Verdict = ReturnType<typeof review> & {
+  clientRequest?: number;
+  clientNote?: string;
+  approved?: boolean;
+};
 export type Serving = {
   drink?: Drink | null;
   plate: Plate;

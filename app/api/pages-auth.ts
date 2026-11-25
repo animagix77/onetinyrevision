@@ -19,6 +19,10 @@ export function preflight() {
 export async function tablePlayer(req: Request) {
   const fromPages = req.headers.get("origin") === pagesOrigin;
   const bearer = req.headers.get("authorization");
+  if (bearer?.startsWith("Guest ")) {
+    const key = bearer.slice(6);
+    return validKey(key) ? { userId: "guest:" + (await digestKey(key)) } : null;
+  }
   if (!fromPages && !bearer) return getChatGPTUser();
   const token = bearer?.match(/^Bearer (.+)$/)?.[1];
   if (!fromPages || !validKey(token)) return null;

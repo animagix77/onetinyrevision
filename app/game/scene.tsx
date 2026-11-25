@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import * as T from "three";
 import { SVGRenderer } from "three/examples/jsm/renderers/SVGRenderer.js";
 import { RotateCcw, ZoomIn, ZoomOut, Move3d, MapPin } from "lucide-react";
-import { board, dish, disposeScene, settleToppings } from "./models";
+import { board, dish, seatFood, disposeScene, settleToppings } from "./models";
 import { animatePours } from "./pour-animation";
 import { staysPut, names, type Drink, type Plate } from "./rules";
 type Props = {
@@ -67,21 +67,21 @@ export default function Scene({
       camera = new T.OrthographicCamera(-4, 4, 3, -3, 0.1, 80);
     scene.add(new T.HemisphereLight(0xffebcf, 0xc09b9c, 2.1));
     const sun = new T.DirectionalLight(0xfff1db, 2.3);
-    sun.position.set(-4, 8, 5);
+    sun.position.set(-2.1, 9, 2.7);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.normalBias = 0.014;
-    sun.shadow.bias = -0.0002;
+    sun.shadow.normalBias = 0.003;
+    sun.shadow.bias = -0.0001;
     scene.add(sun);
     const fill = new T.DirectionalLight(0xffc298, 0.65);
     fill.position.set(4, 4, -4);
     scene.add(fill);
     const floor = new T.Mesh(
       new T.PlaneGeometry(120, 120),
-      new T.ShadowMaterial({ opacity: 0.19 }),
+      new T.ShadowMaterial({ opacity: 0.28 }),
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -0.055;
+    floor.position.y = -0.012;
     floor.receiveShadow = true;
     if (renderer instanceof T.WebGLRenderer) scene.add(floor);
     let group: T.Group,
@@ -94,7 +94,7 @@ export default function Scene({
       last = 0,
       startTime = 0;
     const ray = new T.Raycaster(),
-      plane = new T.Plane(new T.Vector3(0, 1, 0), -0.31),
+      plane = new T.Plane(new T.Vector3(0, 1, 0), -0.2),
       point = new T.Vector3();
     let selected: T.Object3D | null = null,
       grabbed: T.Object3D | null = null,
@@ -248,8 +248,7 @@ export default function Scene({
         initial !== current.current.plate
       )
         return;
-      model.position.x = original.x;
-      model.position.z = original.z;
+      seatFood(model, original.x, original.z);
       settleToppings(group, current.current.plate);
       const k = Math.min(1, 2.29 / Math.hypot(x, z));
       clearPick();
@@ -283,8 +282,7 @@ export default function Scene({
             const x = at.x + offset.x,
               z = at.z + offset.z,
               k = Math.min(1, 2.29 / Math.hypot(x, z));
-            grabbed.position.x = x * k;
-            grabbed.position.z = z * k;
+            seatFood(grabbed, x * k, z * k);
             stopPour?.();
             stopPour = undefined;
             settleToppings(group, current.current.plate);

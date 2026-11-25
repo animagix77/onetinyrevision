@@ -1,12 +1,12 @@
 # One Tiny Revision
 
-A multiplayer Thanksgiving plating game by Judge Dean LLC. Each chef gets one plate, a demanding guest check, and one revised submission. The banquet table shows saved drafts, served versions, verdicts, and team notes. Signed-in players share a D1 database. Anonymous practice stays in the current browser tab.
+A multiplayer Thanksgiving plating game by Judge Dean LLC. Each chef gets one plate, a demanding guest check, and as many revisions as Margo can stomach. The banquet table shows saved drafts, served versions, verdicts, and team notes. All players share the same D1 banquet. Enter a name to plate, serve and leave notes.
 
 ## Play on GitHub Pages
 
 [Play One Tiny Revision](https://animagix77.github.io/onetinyrevision/). Pushes to `main` test, build, and publish the game through GitHub Actions. Run `npm run build:pages` to build the same frontend locally.
 
-Shared play uses the existing sign-in and D1 table. Sign-in briefly opens the identity service and returns to GitHub Pages. Local practice works without an account. API and schema changes require a separate backend deployment.
+A random key saved in the browser lets a returning player resume their own plate. Players can use the same display name without gaining access to each other’s plates. API and schema changes require a separate backend deployment.
 
 ## Local play
 
@@ -20,7 +20,7 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 npm run start
 ```
 
-Sites supplies authenticated identity in production and applies the tracked migration during deployment. Use the Site’s access controls to admit the intended team.
+Sites hosts the shared API and applies the tracked migrations during deployment.
 
 ## Art credits
 
