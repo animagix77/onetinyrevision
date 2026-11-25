@@ -73,6 +73,7 @@ export default function Banquet({
     [fallback, setFallback] = useState(false);
   const host = useRef<HTMLDivElement>(null),
     buttons = useRef<(HTMLButtonElement | null)[]>([]),
+    leaders = useRef<(SVGLineElement | null)[]>([]),
     turn = useRef<((delta: number) => void) | null>(null);
   const sorted = [...entries].sort(
     (a, b) =>
@@ -179,13 +180,59 @@ export default function Banquet({
       camera.updateProjectionMatrix();
       renderer.setSize(w, h, false);
       renderer.render(scene, camera);
-      anchors.forEach((v, i) => {
-        const b = buttons.current[i];
-        if (!b) return;
+      const labels = anchors.flatMap((v, i) => {
+        const button = buttons.current[i];
+        if (!button) return [];
         projected.copy(v).project(camera);
-        b.style.left = (projected.x + 1) * 50 + "%";
-        b.style.top = (1 - projected.y) * 50 + "%";
+        return [
+          {
+            button,
+            i,
+            x: ((projected.x + 1) * w) / 2,
+            y: ((1 - projected.y) * h) / 2,
+          },
+        ];
       });
+      if (window.matchMedia("(max-width: 600px)").matches) {
+        // Keep names out of the food on a phone, with a line to each tasting plate.
+        labels.sort((a, b) => a.x - b.x);
+        const split = Math.ceil(labels.length / 2);
+        for (const [side, column] of [
+          labels.slice(0, split),
+          labels.slice(split),
+        ].entries()) {
+          let previousBottom = 6;
+          for (const { button, i, x, y } of column.sort((a, b) => a.y - b.y)) {
+            const cx =
+              side === 0
+                ? 6 + button.offsetWidth / 2
+                : w - 6 - button.offsetWidth / 2;
+            const top = Math.max(
+              previousBottom + 5,
+              Math.min(
+                h - button.offsetHeight - 6,
+                y - button.offsetHeight / 2,
+              ),
+            );
+            const cy = top + button.offsetHeight / 2;
+            previousBottom = top + button.offsetHeight;
+            button.style.left = cx + "px";
+            button.style.top = cy + "px";
+            const line = leaders.current[i];
+            if (line) {
+              line.setAttribute("x1", String(cx));
+              line.setAttribute("y1", String(cy));
+              line.setAttribute("x2", String(x));
+              line.setAttribute("y2", String(y));
+            }
+          }
+        }
+      } else {
+        for (const { button, x, y } of labels) {
+          button.style.left = x + "px";
+          button.style.top = y + "px";
+        }
+      }
     }
     turn.current = (delta) => {
       angle += delta;
@@ -261,6 +308,18 @@ export default function Banquet({
             The 3D view is unavailable on this device. Choose a place card to
             open a plate.
           </p>
+        )}
+        {!fallback && (
+          <svg className="dish-leaders" aria-hidden="true">
+            {settings.map((s, i) => (
+              <line
+                key={s.id}
+                ref={(el) => {
+                  leaders.current[i] = el;
+                }}
+              />
+            ))}
+          </svg>
         )}
         {settings.map((s, i) => (
           <button
