@@ -1920,7 +1920,7 @@ html {
     height: clamp(330px, 112vw, 500px);
   }
   .seat-tag {
-    max-width: 68px;
+    max-width: clamp(80px, 24vw, 104px);
     padding: 2px 3px;
   }
   .seat-tag strong {
