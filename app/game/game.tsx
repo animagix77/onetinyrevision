@@ -57,23 +57,6 @@ function loadPractice(): Draft {
   } catch {}
   return fresh;
 }
-async function dataUrl<R = unknown>(path: string, options?: RequestInit) {
-  const headers = new Headers(options?.headers);
-  if (options?.method === "POST") headers.set("x-game-round", gameRound);
-  return fetch(path, { cache: "no-store", ...options, headers }).then(
-    async (r) => {
-      const j = await r.json();
-      if (!r.ok)
-        throw Object.assign(
-          Error(
-            (j as { error?: string }).error || "Could not reach the table.",
-          ),
-          { status: r.status },
-        );
-      return j as R;
-    },
-  );
-}
 function ClientCard({
   plate,
   checks = assess(plate).checks,
@@ -88,7 +71,7 @@ function ClientCard({
           <ScrollText size={17} /> GUEST CHECK <span>№ 001</span>
         </div>
         <div className="guest">
-          <img src="/margo.jpg" alt="Margo Vale" />
+          <img src="./margo.jpg" alt="Margo Vale" />
           <div>
             <span className="eyebrow">TODAY’S CLIENT</span>
             <h3>Margo Vale</h3>
@@ -115,7 +98,33 @@ function ClientCard({
     </aside>
   );
 }
-export default function Game({ user }: { user: string | null }) {
+export default function Game({
+  user,
+  request = fetch,
+  signIn,
+}: {
+  user: string | null;
+  request?: typeof fetch;
+  signIn?: () => void;
+}) {
+  async function dataUrl<R = unknown>(path: string, options?: RequestInit) {
+    const headers = new Headers(options?.headers);
+    if (options?.method === "POST") headers.set("x-game-round", gameRound);
+    return request(path, { cache: "no-store", ...options, headers }).then(
+      async (r) => {
+        const j = await r.json();
+        if (!r.ok)
+          throw Object.assign(
+            Error(
+              (j as { error?: string }).error || "Could not reach the table.",
+            ),
+            { status: r.status },
+          );
+        return j as R;
+      },
+    );
+  }
+
   const [tab, setTab] = useState<"kitchen" | "table">("kitchen"),
     [draft, setDraft] = useState<Draft>(fresh),
     [entries, setEntries] = useState<Entry[]>([]),
@@ -369,7 +378,11 @@ export default function Game({ user }: { user: string | null }) {
       setWorking(false);
     }
   }
-  const sign = (
+  const sign = signIn ? (
+    <button className="signin" onClick={signIn}>
+      <LogIn size={16} /> Sign in
+    </button>
+  ) : (
     <a
       className="signin"
       href="/signin-with-chatgpt?return_to=%2F"
@@ -383,7 +396,7 @@ export default function Game({ user }: { user: string | null }) {
     <>
       <header>
         <div className="bar">
-          <a href="/" className="brand">
+          <a href="./" className="brand">
             <ConciergeBell />
             <span>One Tiny Revision</span>
           </a>
@@ -466,6 +479,11 @@ export default function Game({ user }: { user: string | null }) {
             <Scene plate={empty} roast />
             <form className="order-controls" onSubmit={join}>
               <h2>Whose plate is it?</h2>
+              {signIn && !user && (
+                <button className="primary" type="button" onClick={signIn}>
+                  Sign in for the shared banquet
+                </button>
+              )}
               <label htmlFor="chef-name">Name on your dish</label>
               <input
                 id="chef-name"
@@ -480,7 +498,7 @@ export default function Game({ user }: { user: string | null }) {
                 className="primary"
                 disabled={!ready || working || !nameInput.trim()}
               >
-                Start plating
+                {signIn && !user ? "Practice on this device" : "Start plating"}
               </button>
             </form>
           </section>
@@ -520,7 +538,7 @@ export default function Game({ user }: { user: string | null }) {
               </div>
               {shownServing && (
                 <div className="verdict-ribbon" id="client-verdict">
-                  <img src="/margo.jpg" alt="Margo" />
+                  <img src="./margo.jpg" alt="Margo" />
                   <div>
                     <strong>
                       Margo’s verdict · {shownServing.verdict.score}/3

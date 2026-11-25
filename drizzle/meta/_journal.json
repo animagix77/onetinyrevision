@@ -22,6 +22,13 @@
       "when": 1795633845107,
       "tag": "0002_game_round",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1795634356295,
+      "tag": "0003_pages_sign_in",
+      "breakpoints": true
     }
   ]
 }

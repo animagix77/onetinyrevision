@@ -43,7 +43,7 @@ export default function Music() {
   }
   return (
     <>
-      <audio ref={audio} src="/audio/potluck.mp3" loop preload="none" />
+      <audio ref={audio} src="./audio/potluck.mp3" loop preload="none" />
       <button
         type="button"
         className="music-toggle"

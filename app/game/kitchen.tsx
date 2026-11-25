@@ -156,7 +156,7 @@ export default function Kitchen({
   return (
     <section className="quick-game">
       <div className="order-strip">
-        <img src="/margo.jpg" alt="" />
+        <img src="./margo.jpg" alt="" />
         <div>
           <strong>
             Margo Vale <small>· Your client</small>
@@ -213,7 +213,7 @@ export default function Kitchen({
                 disabled={disabled || plate.length >= 20}
                 onClick={addSideGravy}
               >
-                <img src="/food/gravy.png" alt="" />
+                <img src="./food/gravy.png" alt="" />
                 Gravy on the side
               </button>
               <small>
@@ -349,7 +349,11 @@ export default function Kitchen({
                       suppress.current = false;
                     }}
                   >
-                    <img src={"/food/" + k + ".png"} alt="" draggable={false} />
+                    <img
+                      src={"./food/" + k + ".png"}
+                      alt=""
+                      draggable={false}
+                    />
                     <strong>{names[k]}</strong>
                     {staysPut(k) && <small>Stays put</small>}
                   </button>
@@ -404,7 +408,7 @@ export default function Kitchen({
         <img
           className="drag-food"
           style={{ left: ghost.x, top: ghost.y }}
-          src={"/food/" + ghost.kind + ".png"}
+          src={"./food/" + ghost.kind + ".png"}
           alt=""
         />
       )}

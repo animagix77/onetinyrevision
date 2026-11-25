@@ -2,6 +2,12 @@
 
 A multiplayer Thanksgiving plating game by Judge Dean LLC. Each chef gets one plate, a demanding guest check, and one revised submission. The banquet table shows saved drafts, served versions, verdicts, and team notes. Signed-in players share a D1 database. Anonymous practice stays in the current browser tab.
 
+## Play on GitHub Pages
+
+[Play One Tiny Revision](https://animagix77.github.io/onetinyrevision/). Pushes to `main` test, build, and publish the game through GitHub Actions. Run `npm run build:pages` to build the same frontend locally.
+
+Shared play uses the existing sign-in and D1 table. Sign-in briefly opens the identity service and returns to GitHub Pages. Local practice works without an account. API and schema changes require a separate backend deployment.
+
 ## Local play
 
 Install dependencies with `npm ci` and run `npm run build`. On a fresh local database, apply the schema and start the preview.
@@ -10,6 +16,7 @@ Install dependencies with `npm ci` and run `npm run build`. On a fresh local dat
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_curious_ogun.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_red_marten_broadcloak.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0002_game_round.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0003_pages_sign_in.sql
 npm run start
 ```
 

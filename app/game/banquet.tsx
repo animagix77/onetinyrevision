@@ -302,7 +302,7 @@ export default function Banquet({
     <section className="banquet-room" aria-label="Margo’s 3D banquet table">
       {verdict ? (
         <div className="verdict-ribbon" role="status" aria-atomic="true">
-          <img src="/margo.jpg" alt="" />
+          <img src="./margo.jpg" alt="" />
           <div>
             <strong>Margo’s verdict on your plate · {verdict.score}/3</strong>
             <blockquote>“{verdict.note}”</blockquote>

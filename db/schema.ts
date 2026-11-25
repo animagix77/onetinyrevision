@@ -27,3 +27,10 @@ export const chefs = sqliteTable("chef_profiles", {
 export const gameRounds = sqliteTable("game_rounds", {
   id: text("id").primaryKey(),
 });
+
+export const pagesSessions = sqliteTable("pages_sessions", {
+  hash: text("hash").primaryKey(),
+  owner: text("owner").notNull(),
+  challenge: text("challenge"),
+  expires: integer("expires").notNull(),
+});

@@ -1,4 +1,5 @@
-import { getChatGPTUser } from "../../chatgpt-auth";
+import { apiHeaders, preflight, tablePlayer } from "../pages-auth";
+import { pagesOrigin } from "../../game/pages-host";
 import { getRoundDb } from "../../../db/active-round";
 import { gameRound } from "../../game/round";
 import { plates, notes, chefs } from "../../../db/schema";
@@ -16,12 +17,19 @@ export const dynamic = "force-dynamic";
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
     status,
-    headers: { "Cache-Control": "private, no-store" },
+    headers: apiHeaders,
   });
-export async function GET() {
+export function OPTIONS() {
+  return preflight();
+}
+export async function GET(req: Request) {
   const db = await getRoundDb();
-  const user = await getChatGPTUser();
-  if (!user) return json({ signedIn: false, entries: [], notes: [] });
+  const user = await tablePlayer(req);
+  if (!user)
+    return json(
+      { signedIn: false, entries: [], notes: [] },
+      req.headers.has("authorization") ? 401 : 200,
+    );
   const [rows, comments, profile] = await Promise.all([
     db.select().from(plates).orderBy(desc(plates.updated)),
     db.select().from(notes).orderBy(desc(notes.created)),
@@ -63,9 +71,9 @@ const bodySchema = z.discriminatedUnion("action", [
 ]);
 export async function POST(req: Request) {
   const origin = req.headers.get("origin");
-  if (origin && origin !== new URL(req.url).origin)
+  if (origin && origin !== new URL(req.url).origin && origin !== pagesOrigin)
     return json({ error: "Use the game to update your plate." }, 403);
-  const u = await getChatGPTUser();
+  const u = await tablePlayer(req);
   if (!u) return json({ error: "Sign in to join the table." }, 401);
   if (req.headers.get("x-game-round") !== gameRound)
     return json(
