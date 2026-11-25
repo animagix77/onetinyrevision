@@ -423,7 +423,9 @@ export default function Game({ user }: { user: string | null }) {
                 {!chefName || tab === "kitchen"
                   ? "Margo just approved the Thanksgiving campaign. Seventeen decks. One headline. Someone called the office potluck a tasting. Now she’s at the judges’ table with a fork and a red pen. Make her a plate. You get one revision."
                   : inspect
-                    ? "The food has been through client review."
+                    ? shownServing
+                      ? "The food has been through client review."
+                      : "The chef is still plating."
                     : "Margo is tasting the whole lineup. Pick a chef’s plate for her verdict."}
               </p>
             </div>
