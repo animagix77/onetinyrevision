@@ -1,6 +1,33 @@
 // Margo gets one line per tasting. Each pool is tied to something the chef served.
 const lines = (copy: string) => copy.trim().split("\n");
 export const margoLines = {
+  barTab: lines(`
+My fork has one place setting and my bar tab has several. Which headcount did we send Finance?
+I see my Thanksgiving drinks have a plus-one. Lovely. What name shall I give Accounts?
+I asked for a pairing. Did you hear “pair up and bring a friend”?
+My mother counts chairs before Thanksgiving. Finance counts glasses. One of them is going to call.
+I’ve got enough drinks to toast both sides of the family separately. Keep the itemized receipt.
+I’ll raise a glass to the turkey. What business purpose are we assigning the other toast?
+Is that all for me? Lovely. Fold the Thanksgiving receipt so the drinks are on the inside.`),
+  anotherRound: lines(`
+I said “another round of revisions.” I can see where the drinks team got involved.
+An extra drink since my last tasting. Did the turkey approve a change order?
+I see you’ve addressed my feedback by increasing the bar tab. Accounts would love to meet your strategist.
+We went back for edits and came back with another drink. My aunt runs Thanksgiving the same way.`),
+  expenseReport: lines(`
+You’re going to need to add a couple of names to that expense report. And no, the turkey doesn’t count.
+One chair, all these drinks. Compliance is going to want a wider shot of Thanksgiving.
+When Accounts asks how many people came to dinner, please let somebody other than the bartender answer.
+There’s a whole kids’ table at my mother’s house and somehow my place setting still has the bigger bar tab.
+Before we say grace, could everyone who actually drank something sign the back of this receipt?
+The Thanksgiving expense form has a box for “client attendees.” “Margo, repeatedly” won’t fit.
+I asked for holiday spirit in the singular. Could somebody walk Finance through the plurals?
+That’s a generous pour of agency hospitality. I’d staple the seating chart to the receipt.`),
+  barSignoff: lines(`
+I’ll sign off on the turkey. Somebody who was here for all those drinks can sign the expense report.
+Dinner is approved. The bar receipt can go through its own round of revisions.
+Yes to the plate. Leave a little room under my signature for whoever’s explaining the drinks to Finance.
+The skin is crisp, the gravy’s on the side, and the receipt needs a second page. Happy Thanksgiving.`),
   drinksOnly: lines(`
 I appreciate the beverage strategy. Which glass has the two slices of turkey?
 We seem to have gone straight to the part of Thanksgiving where my uncle has opinions. I’d still like dinner.

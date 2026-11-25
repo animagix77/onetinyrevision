@@ -76,6 +76,14 @@ export const drinkKinds = [
 ] as const;
 export const drinkSchema = z.enum(drinkKinds);
 export type Drink = (typeof drinkKinds)[number];
+const alcoholicDrinks: ReadonlySet<Drink> = new Set([
+  "pinot",
+  "ale",
+  "bourbon",
+]);
+function alcoholCount(drinks: Drink[]) {
+  return drinks.filter((drink) => alcoholicDrinks.has(drink)).length;
+}
 export const maxDrinks = 8;
 export const drinksSchema = z.array(drinkSchema).max(maxDrinks);
 export const drinkNames: Record<Drink, string> = {
@@ -161,7 +169,15 @@ export function review(
   const approved = history.length >= 3 && score === 3;
   const previous = history.at(-1);
   let voice: keyof typeof margoLines = pool;
-  if (!p.length && drinks.length) voice = "drinksOnly";
+  const alcohol = alcoholCount(drinks);
+  if (alcohol >= 2) {
+    const priorAlcohol = alcoholCount(drinksFor(previous));
+    if (approved) voice = "barSignoff";
+    else if (alcohol >= 4) voice = "expenseReport";
+    else if (priorAlcohol >= 2 && alcohol > priorAlcohol)
+      voice = "anotherRound";
+    else voice = "barTab";
+  } else if (!p.length && drinks.length) voice = "drinksOnly";
   else if (score === 3 && drinks.length >= 3)
     voice = approved ? "flightApproved" : "flight";
   else if (score === 3 && !approved) {
