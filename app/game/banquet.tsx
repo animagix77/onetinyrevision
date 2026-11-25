@@ -13,7 +13,6 @@ type Setting = {
   plate: Plate;
   drink?: Drink | null;
 };
-const capacity = 8;
 
 // Static scenery shares draw calls. Keep seats separate so plates stay pickable.
 function batchRoom(room: T.Group) {
@@ -62,6 +61,14 @@ export default function Banquet({
   entries: Entry[];
   open: (entry: Entry) => void;
 }) {
+  const [capacity, setCapacity] = useState(8);
+  useEffect(() => {
+    const phone = window.matchMedia("(max-width: 600px)");
+    const fitCards = () => setCapacity(phone.matches ? 4 : 8);
+    fitCards();
+    phone.addEventListener("change", fitCards);
+    return () => phone.removeEventListener("change", fitCards);
+  }, []);
   const [page, setPage] = useState(0),
     [fallback, setFallback] = useState(false);
   const host = useRef<HTMLDivElement>(null),
@@ -271,11 +278,8 @@ export default function Banquet({
             }
             onClick={() => visit.current(i)}
           >
-            <strong>
-              {s.chef}
-              {s.mine ? " (you)" : ""}
-            </strong>
-            <small>{s.served ? "Margo’s note" : "In the kitchen"}</small>
+            <strong>{s.chef}</strong>
+            {!s.served && <small>In the kitchen</small>}
           </button>
         ))}
       </div>

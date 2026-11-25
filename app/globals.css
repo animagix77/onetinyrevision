@@ -1818,7 +1818,8 @@ html {
 .seat-tag {
   position: absolute;
   transform: translate(-50%, -32%);
-  max-width: 100px;
+  width: max-content;
+  max-width: 114px;
   cursor: pointer;
   background: #fff9e5;
   color: #422a36;
@@ -1841,6 +1842,8 @@ html {
   white-space: nowrap;
 }
 .seat-tag strong {
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-size: 0.86rem;
 }
 .seat-tag small {
