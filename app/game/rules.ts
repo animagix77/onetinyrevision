@@ -76,6 +76,8 @@ export const drinkKinds = [
 ] as const;
 export const drinkSchema = z.enum(drinkKinds);
 export type Drink = (typeof drinkKinds)[number];
+export const maxDrinks = 8;
+export const drinksSchema = z.array(drinkSchema).max(maxDrinks);
 export const drinkNames: Record<Drink, string> = {
   pinot: "Pinot Noir",
   ale: "Amber ale",
@@ -83,6 +85,18 @@ export const drinkNames: Record<Drink, string> = {
   cider: "Hot apple cider",
   spritz: "Cranberry spritz (zero proof)",
 };
+const noDrinks: Drink[] = [];
+export function drinksFor(order?: { drinks?: Drink[]; drink?: Drink | null }) {
+  return order?.drinks ?? (order?.drink ? [order.drink] : noDrinks);
+}
+export function drinkList(drinks: Drink[]) {
+  return drinkKinds
+    .flatMap((kind) => {
+      const count = drinks.filter((d) => d === kind).length;
+      return count ? [count + " × " + drinkNames[kind]] : [];
+    })
+    .join(" · ");
+}
 export function portionList(p: Plate) {
   const counts = new Map<string, number>();
   for (const f of p) {
@@ -137,13 +151,20 @@ export function assess(p: Plate) {
   } else if (sauce.length > 1) pool = "ampleSauce";
   return { checks, pool, pin: target ? { x: target.x, z: target.z } : null };
 }
-export function review(p: Plate, history: Serving[] = []): Verdict {
+export function review(
+  p: Plate,
+  history: Serving[] = [],
+  drinks: Drink[] = [],
+): Verdict {
   const { pool, checks, pin } = assess(p);
   const score = checks.filter(Boolean).length;
   const approved = history.length >= 3 && score === 3;
   const previous = history.at(-1);
   let voice: keyof typeof margoLines = pool;
-  if (score === 3 && !approved) {
+  if (!p.length && drinks.length) voice = "drinksOnly";
+  else if (score === 3 && drinks.length >= 3)
+    voice = approved ? "flightApproved" : "flight";
+  else if (score === 3 && !approved) {
     const turkey = p.filter((f) => meat(f.kind));
     const moved =
       previous?.verdict.score === 3 &&
@@ -191,12 +212,14 @@ export type Verdict = {
   approved?: boolean;
 };
 export type Serving = {
+  drinks?: Drink[];
   drink?: Drink | null;
   plate: Plate;
   verdict: Verdict;
   at: number;
 };
 export type Entry = {
+  drinks?: Drink[];
   drink?: Drink | null;
   id: string;
   chef: string;

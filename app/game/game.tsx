@@ -16,7 +16,8 @@ import Banquet from "./banquet";
 import {
   brief,
   assess,
-  drinkNames,
+  drinksFor,
+  drinkList,
   portionList,
   type Drink,
   keepsCommittedPortions,
@@ -30,12 +31,12 @@ import { gameRound } from "./round";
 import { guestKey } from "./guest";
 const empty: Plate = [];
 type Draft = {
-  drink?: Drink | null;
+  drinks: Drink[];
   plate: Plate;
   servings: Serving[];
   version: number;
 };
-const fresh: Draft = { plate: empty, servings: [], version: 0 };
+const fresh: Draft = { plate: empty, servings: [], drinks: [], version: 0 };
 function ClientCard({
   plate,
   checks = assess(plate).checks,
@@ -124,12 +125,14 @@ export default function Game({ apiOrigin = "" }: { apiOrigin?: string }) {
   const inspect = entries.find((x) => x.id === selected),
     snapshot = inspect && history >= 0 ? inspect.servings[history] : undefined;
   const latestServing = inspect?.servings.at(-1);
+  const shownDrinks = drinksFor(snapshot ?? inspect);
   const shownServing =
     snapshot ??
     (latestServing &&
     inspect &&
     JSON.stringify(latestServing.plate) === JSON.stringify(inspect.draft) &&
-    (latestServing.drink ?? null) === (inspect.drink ?? null)
+    JSON.stringify(drinksFor(latestServing)) ===
+      JSON.stringify(drinksFor(inspect))
       ? latestServing
       : undefined);
   useEffect(() => {
@@ -154,7 +157,7 @@ export default function Game({ apiOrigin = "" }: { apiOrigin?: string }) {
     if (me && (hydrate || (!lock.current && me.version > latest.current))) {
       latest.current = me.version;
       setDraft({
-        drink: me.drink,
+        drinks: drinksFor(me),
         plate: me.draft,
         servings: me.servings,
         version: me.version,
@@ -211,7 +214,7 @@ export default function Game({ apiOrigin = "" }: { apiOrigin?: string }) {
   async function change(
     next: Plate,
     serve = false,
-    drink: Drink | null = draft.drink ?? null,
+    drinks: Drink[] = draft.drinks,
   ) {
     if (lock.current || !ready || !chefName || locked) return false;
     if (!keepsCommittedPortions(plate, next)) {
@@ -232,13 +235,13 @@ export default function Game({ apiOrigin = "" }: { apiOrigin?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: serve ? "serve" : "save",
-          drink,
+          drinks,
           plate: next,
           version: draft.version,
         }),
       });
       const result: Draft = {
-        drink,
+        drinks,
         plate: next,
         servings: r.servings,
         version: r.version,
@@ -248,7 +251,7 @@ export default function Game({ apiOrigin = "" }: { apiOrigin?: string }) {
         mine: true,
         chef: chefName,
         draft: next,
-        drink,
+        drinks,
         servings: r.servings,
         version: r.version,
         updated: Date.now(),
@@ -402,7 +405,7 @@ export default function Game({ apiOrigin = "" }: { apiOrigin?: string }) {
           </section>
         ) : tab === "kitchen" ? (
           <Kitchen
-            drink={draft.drink ?? null}
+            drinks={draft.drinks}
             plate={plate}
             servings={draft.servings}
             busy={working}
@@ -451,19 +454,19 @@ export default function Game({ apiOrigin = "" }: { apiOrigin?: string }) {
               )}
               <Scene
                 roast={false}
-                drink={snapshot ? snapshot.drink : inspect.drink}
+                drinks={shownDrinks}
                 label={snapshot ? "SERVED PLATE" : "CURRENT PLATE"}
                 plate={snapshot?.plate || inspect.draft}
                 pin={shownServing?.verdict.pin}
               />
               <div className="toolbar">
                 <p className="served-menu">
-                  {portionList(snapshot?.plate ?? inspect.draft) ||
-                    "Empty plate"}
-                  {(snapshot ? snapshot.drink : inspect.drink)
-                    ? " · " +
-                      drinkNames[(snapshot ? snapshot.drink : inspect.drink)!]
-                    : ""}
+                  {[
+                    portionList(snapshot?.plate ?? inspect.draft),
+                    drinkList(shownDrinks),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Empty plate"}
                 </p>
                 {inspect.mine && inspect.servings.length > 0 && (
                   <button

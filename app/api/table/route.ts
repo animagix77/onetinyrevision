@@ -8,6 +8,8 @@ import {
   keepsCommittedPortions,
   placementRule,
   drinkSchema,
+  drinksSchema,
+  type Drink,
   review,
   type Serving,
 } from "../../game/rules";
@@ -21,6 +23,13 @@ const json = (body: unknown, status = 200) =>
   });
 export function OPTIONS() {
   return preflight();
+}
+function storedDrinks(value?: string | null): Drink[] {
+  if (!value) return [];
+  // Older drafts store one enum value; new drafts store the whole order as JSON.
+  const single = drinkSchema.safeParse(value);
+  if (single.success) return [single.data];
+  return drinksSchema.parse(JSON.parse(value));
 }
 export async function GET(req: Request) {
   const db = await getRoundDb();
@@ -40,12 +49,17 @@ export async function GET(req: Request) {
   return json({
     signedIn: !!user,
     name: profile?.name ?? null,
-    entries: rows.map(({ owner, draft, servings, ...row }) => ({
-      ...row,
-      mine: owner === user?.userId,
-      draft: JSON.parse(draft),
-      servings: JSON.parse(servings),
-    })),
+    entries: rows.map(({ owner, draft, servings, drink, ...row }) => {
+      const drinks = storedDrinks(drink);
+      return {
+        drink: drinks[0] ?? null,
+        drinks,
+        ...row,
+        mine: owner === user?.userId,
+        draft: JSON.parse(draft),
+        servings: JSON.parse(servings),
+      };
+    }),
     notes: comments,
   });
 }
@@ -69,6 +83,7 @@ const bodySchema = z.discriminatedUnion("action", [
     version: z.number().int().nonnegative(),
     plate: plateSchema,
     drink: drinkSchema.nullable().optional(),
+    drinks: drinksSchema.optional(),
   }),
 ]);
 export async function POST(req: Request) {
@@ -142,22 +157,26 @@ export async function POST(req: Request) {
   const servings: Serving[] = row ? JSON.parse(row.servings) : [];
   if (row && !keepsCommittedPortions(JSON.parse(row.draft), b.plate))
     return json({ error: placementRule }, 422);
-  const drink =
-    b.drink === undefined
-      ? (drinkSchema.safeParse(row?.drink).data ?? null)
-      : b.drink;
+  const prior = storedDrinks(row?.drink);
+  // A client with the old single-glass picker edits only the first glass.
+  const drinks =
+    b.drinks ??
+    (b.drink === undefined
+      ? prior
+      : [...(b.drink ? [b.drink] : []), ...prior.slice(1)]);
   if (b.action === "serve") {
-    if (!b.plate.length)
-      return json({ error: "Add something to the plate first." }, 400);
+    if (!b.plate.length && !drinks.length)
+      return json({ error: "Add food or a drink before serving." }, 400);
     servings.push({
       plate: b.plate,
-      drink,
-      verdict: review(b.plate, servings),
+      drinks,
+      drink: drinks[0] ?? null,
+      verdict: review(b.plate, servings, drinks),
       at: now,
     });
   }
   const data = {
-    drink,
+    drink: JSON.stringify(drinks),
     chef,
     draft: JSON.stringify(b.plate),
     servings: JSON.stringify(servings),

@@ -18,6 +18,7 @@ import {
   side,
   drinkKinds,
   drinkNames,
+  maxDrinks,
   type Kind,
   type Plate,
   type Serving,
@@ -26,12 +27,12 @@ import {
 type Spot = { x: number; z: number };
 type Props = {
   plate: Plate;
-  drink: Drink | null;
+  drinks: Drink[];
   servings: Serving[];
   ready: boolean;
   busy: boolean;
   revising: boolean;
-  change: (p: Plate, serve?: boolean, drink?: Drink | null) => Promise<boolean>;
+  change: (p: Plate, serve?: boolean, drinks?: Drink[]) => Promise<boolean>;
   revise: () => void;
   table: () => void;
 };
@@ -65,7 +66,7 @@ function batch(kind: Kind, count: number, at: Spot): Plate {
 }
 export default function Kitchen({
   plate,
-  drink,
+  drinks,
   servings,
   ready,
   busy,
@@ -172,7 +173,7 @@ export default function Kitchen({
             plate={plate}
             roast={false}
             dropTarget={pickPoint}
-            drink={drink}
+            drinks={drinks}
             onMove={disabled ? undefined : movePortion}
             pin={closed ? verdict?.pin : null}
           />
@@ -259,31 +260,59 @@ export default function Kitchen({
                     </div>
                   ))}
               </details>
-              <label className="drink-label" htmlFor="pairing">
-                Drink pairing <small>optional</small>
-              </label>
-              <select
-                id="pairing"
-                disabled={disabled}
-                value={drink ?? ""}
-                onChange={(e) =>
-                  void change(
-                    plate,
-                    false,
-                    (e.target.value || null) as Drink | null,
-                  )
-                }
-              >
-                <option value="">No drink</option>
-                {drinkKinds.map((k) => (
-                  <option key={k} value={k}>
-                    {drinkNames[k]}
-                  </option>
-                ))}
-              </select>
+              <fieldset className="drinks-picker" disabled={disabled}>
+                <legend>
+                  Drinks{" "}
+                  <small>
+                    {drinks.length}/{maxDrinks} glasses
+                  </small>
+                </legend>
+                <div className="drink-options">
+                  {drinkKinds.map((kind) => {
+                    const count = drinks.filter((d) => d === kind).length;
+                    return (
+                      <div className="drink-option" key={kind}>
+                        <button
+                          type="button"
+                          aria-label={"Add " + drinkNames[kind]}
+                          disabled={drinks.length >= maxDrinks}
+                          onClick={() =>
+                            void change(plate, false, [...drinks, kind])
+                          }
+                        >
+                          <Plus size={13} aria-hidden="true" />
+                          {drinkNames[kind]}
+                        </button>
+                        {count > 0 && (
+                          <>
+                            <output aria-label={drinkNames[kind] + " count"}>
+                              {count}
+                            </output>
+                            <button
+                              type="button"
+                              aria-label={"Remove one " + drinkNames[kind]}
+                              onClick={() =>
+                                void change(
+                                  plate,
+                                  false,
+                                  drinks.filter(
+                                    (_, i) => i !== drinks.lastIndexOf(kind),
+                                  ),
+                                )
+                              }
+                            >
+                              <Minus size={13} aria-hidden="true" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </fieldset>
               <button
                 className="primary"
-                disabled={disabled || !plate.length}
+                disabled={disabled || (!plate.length && !drinks.length)}
                 onClick={() => change(plate, true)}
               >
                 <ConciergeBell />

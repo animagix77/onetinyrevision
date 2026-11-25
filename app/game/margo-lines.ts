@@ -1,6 +1,18 @@
 // Margo gets one line per tasting. Each pool is tied to something the chef served.
 const lines = (copy: string) => copy.trim().split("\n");
 export const margoLines = {
+  drinksOnly: lines(`
+I appreciate the beverage strategy. Which glass has the two slices of turkey?
+We seem to have gone straight to the part of Thanksgiving where my uncle has opinions. I’d still like dinner.
+The turkey and I appear to be at separate events. Did someone forward it the drinks invite?`),
+  flight: lines(`
+Two slices, two sides, and a drinks menu with its own account director. I’d like a minute with the seating chart.
+The turkey meets the brief. The glassware suggests this Thanksgiving has secured a beverage sponsor.
+Could you point out which glass is mine? “All of them” is quite a bold reading of the Thanksgiving brief.`),
+  flightApproved: lines(`
+Thanksgiving is approved. I’ve put a coaster on the deck so you’ll know which version I signed.
+The turkey’s crisp and the drinks have formed a steering committee. Fine. Send the leftovers to my office.
+Sign-off granted. Please expense the turkey and submit the glassware as a separate event.`),
   missingTurkey: lines(`
 Is the turkey joining by Zoom?
 I have a plate, a fork, and written assurance that there’s a turkey. Two of those things are going cold.

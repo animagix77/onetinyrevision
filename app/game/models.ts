@@ -293,6 +293,7 @@ function cloth(g: Group) {
     for (let i = -7; i <= 7; i++)
       box(c, "#b56764", i * 0.376, 0.051, j * 0.376, 0.17, 0.01, 0.17, 0.001);
   }
+  return c;
 }
 export function board(p: Plate) {
   let g = new T.Group();
@@ -410,15 +411,35 @@ function food(g: Group, f: Food) {
 export function seatFood(model: T.Object3D, x: number, z: number) {
   model.position.set(x, china(x, z) + model.userData.clearance - 0.006, z);
 }
-function glassware(g: Group, drink: Drink) {
+function glassware(
+  g: Group,
+  drink: Drink,
+  index: number,
+  napkin: T.Group | null,
+) {
   const glass = new T.Group();
   g.add(glass);
-  glass.position.set(-2.65, 0.07, -0.26);
+  // An arc behind the china leaves the front right clear for the gravy boat.
+  const angle = Math.PI + index * 0.32;
+  const radiusFromCenter = 2.82;
+  glass.position.set(
+    Math.cos(angle) * radiusFromCenter,
+    0.07,
+    Math.sin(angle) * radiusFromCenter,
+  );
+  glass.rotation.y = -angle;
   const wine = drink === "pinot",
     mug = drink === "cider" || drink === "ale",
     height = wine ? 0.98 : drink === "bourbon" ? 0.52 : 0.78;
   const base = wine ? 0.41 : 0.04,
     radius = wine ? 0.31 : 0.27;
+  let surface = 0.07;
+  if (napkin) {
+    const local = napkin.worldToLocal(glass.position.clone());
+    if (Math.abs(local.x) > 5.65 / 2 || Math.abs(local.z) > 4.05 / 2)
+      surface = -0.012;
+  }
+  glass.position.y = surface - (wine ? 0.0015 : base);
   if (wine) {
     mesh(
       glass,
@@ -500,9 +521,9 @@ function glassware(g: Group, drink: Drink) {
   if (drink === "bourbon")
     box(glass, "#ded1ab", 0.06, height - 0.055, 0.03, 0.14, 0.1, 0.14, 0.025);
 }
-export function dish(p: Plate, drink?: Drink | null, withCloth = true) {
+export function dish(p: Plate, drinks: Drink[] = [], withCloth = true) {
   const g = new T.Group();
-  if (withCloth) cloth(g);
+  const napkin = withCloth ? cloth(g) : null;
   const points = [
     [0, 0.18],
     [1.65, 0.18],
@@ -531,7 +552,7 @@ export function dish(p: Plate, drink?: Drink | null, withCloth = true) {
     const model = food(g, item);
     model.userData.portionIndex = index;
   }
-  if (drink) glassware(g, drink);
+  drinks.forEach((drink, index) => glassware(g, drink, index, napkin));
   const boatIndex = p.findIndex((f) => f.inBoat);
   if (boatIndex >= 0) {
     const boat = new T.Group();
@@ -757,9 +778,7 @@ function centerpiece(parent: Group, x: number) {
   }
   sprig(parent, x - 0.2, 1.79, 0.09, -1.25, 0.65);
 }
-export function banquetModel(
-  settings: { plate: Plate; drink?: Drink | null }[],
-) {
+export function banquetModel(settings: { plate: Plate; drinks?: Drink[] }[]) {
   const room = new T.Group();
   const top = 1.75;
   box(room, "#ba805f", 0, -0.15, 0, 16, 0.19, 11, 0.18);
@@ -818,7 +837,7 @@ export function banquetModel(
     const columns = Math.ceil(settings.length / 2);
     const x = (Math.floor(i / 2) - (columns - 1) / 2) * 2.25;
     const z = i % 2 === 0 ? 1.05 : -0.62;
-    const plate = dish(setting.plate, setting.drink, false);
+    const plate = dish(setting.plate, setting.drinks, false);
     plate.scale.setScalar(0.32);
     plate.position.set(x, (z < 0 ? 1.7995 : 1.7725) - 0.07 * plate.scale.y, z);
     plate.userData.seat = i;

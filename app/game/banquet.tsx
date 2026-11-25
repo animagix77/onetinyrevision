@@ -4,14 +4,14 @@ import * as T from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { RotateCcw, RotateCw } from "lucide-react";
 import { banquetModel, disposeScene } from "./models";
-import type { Drink, Entry, Plate } from "./rules";
+import { drinksFor, type Drink, type Entry, type Plate } from "./rules";
 type Setting = {
   id: string;
   chef: string;
   mine: boolean;
   served: boolean;
   plate: Plate;
-  drink?: Drink | null;
+  drinks: Drink[];
 };
 
 // Static scenery shares draw calls. Keep seats separate so plates stay pickable.
@@ -99,7 +99,7 @@ export default function Banquet({
       mine: e.mine,
       served: !!last,
       plate: last?.plate ?? e.draft,
-      drink: last ? last.drink : e.drink,
+      drinks: drinksFor(last ?? e),
     };
   });
   const sceneKey = JSON.stringify(settings);

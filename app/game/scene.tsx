@@ -9,7 +9,7 @@ import { staysPut, names, type Drink, type Plate } from "./rules";
 type Props = {
   plate: Plate;
   roast: boolean;
-  drink?: Drink | null;
+  drinks?: Drink[];
   onMove?: (index: number, x: number, z: number) => void;
   dropTarget?: React.RefObject<
     | ((
@@ -30,7 +30,7 @@ export default function Scene({
   pin,
   label,
   dropTarget,
-  drink,
+  drinks,
   onMove,
 }: Props) {
   const mount = useRef<HTMLDivElement>(null),
@@ -40,8 +40,8 @@ export default function Scene({
       draw: () => void;
       replace: () => void;
     } | null>(null),
-    current = useRef({ plate, roast, onPlace, pin, drink, onMove });
-  current.current = { plate, roast, onPlace, pin, drink, onMove };
+    current = useRef({ plate, roast, onPlace, pin, drinks, onMove });
+  current.current = { plate, roast, onPlace, pin, drinks, onMove };
   const [hint, setHint] = useState("");
   const marker = useRef<HTMLSpanElement>(null);
   const [failed, setFailed] = useState(false);
@@ -132,13 +132,13 @@ export default function Scene({
         Math.max(
           current.current.roast
             ? 2.04
-            : current.current.drink ||
+            : current.current.drinks?.length ||
                 current.current.plate.some((f) => f.inBoat)
               ? 2.1
               : 1.65,
           ((current.current.roast
             ? 3.87
-            : current.current.drink ||
+            : current.current.drinks?.length ||
                 current.current.plate.some((f) => f.inBoat)
               ? 3.68
               : 2.95) *
@@ -151,7 +151,7 @@ export default function Scene({
       camera.bottom = -half;
       const center = current.current.roast
         ? 0.7
-        : current.current.drink
+        : current.current.drinks?.length
           ? 0.63
           : 0.32;
       camera.position.set(
@@ -183,7 +183,7 @@ export default function Scene({
       }
       group = current.current.roast
         ? board(current.current.plate)
-        : dish(current.current.plate, current.current.drink);
+        : dish(current.current.plate, current.current.drinks);
       scene.add(group);
       const next = current.current.plate;
       if (
@@ -390,7 +390,7 @@ export default function Scene({
   }, []);
   useEffect(() => {
     api.current?.replace();
-  }, [plate, roast, drink]);
+  }, [plate, roast, drinks]);
   useEffect(() => {
     api.current?.draw();
   }, [pin]);
